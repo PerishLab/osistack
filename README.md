@@ -15,7 +15,8 @@ The workspace currently holds three crates and no protocol:
 - `http`, protocol-independent method, status, field name and field value types
   that validate and reject malformed input.
 - `wire`, a byte reader and writer and the QUIC variable-length integer of
-  RFC 9000 section 16.
+  RFC 9000 section 16, the prefix integer of RFC 7541 section 5.1 and the
+  Huffman code of RFC 7541 appendix B.
 
 HTTP/1.1, HTTP/2, HTTP/3, TLS, QUIC, cryptography and a command line are not
 implemented, and nothing has been released, installed or qualified on any

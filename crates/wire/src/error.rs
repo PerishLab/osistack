@@ -2,4 +2,6 @@
 pub enum Error {
     Truncated,
     Range,
+    Symbol,
+    Padding,
 }
