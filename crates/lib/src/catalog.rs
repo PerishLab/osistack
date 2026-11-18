@@ -4,7 +4,7 @@ pub fn table() -> Vec<Capability> {
     vec![
         Capability::new(Area::Wire, "byte-cursor", State::Supported),
         Capability::new(Area::Wire, "quic-varint", State::Supported),
-        Capability::new(Area::Wire, "prefix-integer", State::Unverified),
+        Capability::new(Area::Wire, "prefix-integer", State::Supported),
         Capability::new(Area::Wire, "huffman", State::Unverified),
         Capability::new(Area::Semantics, "method", State::Supported),
         Capability::new(Area::Semantics, "status", State::Supported),

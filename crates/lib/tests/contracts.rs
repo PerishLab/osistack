@@ -17,6 +17,7 @@ fn supported() {
         vec![
             (Area::Wire, "byte-cursor"),
             (Area::Wire, "quic-varint"),
+            (Area::Wire, "prefix-integer"),
             (Area::Semantics, "method"),
             (Area::Semantics, "status"),
             (Area::Semantics, "field-name"),
