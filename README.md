@@ -7,11 +7,23 @@ replaced on its own. Its first target is the widely used subset of HTTP/1.1,
 HTTP/2 and HTTP/3, over a self-built TLS and a self-built QUIC, as a long-term
 replacement for request libraries and curl in PerishLab.
 
-The repository currently contains its governance baseline. Protocol behavior,
-crate boundaries, supported platforms and distribution are not yet implemented.
-Designs and practices taken from other implementations will be credited by name.
+The workspace currently holds three crates and no protocol:
 
-See [AGENTS.md](AGENTS.md) for the product's working constraints and the
+- `osistack`, the public entry, with a capability profile that separates what is
+  supported, deliberately excluded and unverified. Operations that would touch a
+  network are refused rather than faked.
+- `http`, protocol-independent method, status, field name and field value types
+  that validate and reject malformed input.
+- `wire`, a byte reader and writer and the QUIC variable-length integer of
+  RFC 9000 section 16.
+
+HTTP/1.1, HTTP/2, HTTP/3, TLS, QUIC, cryptography and a command line are not
+implemented, and nothing has been released, installed or qualified on any
+platform. Designs and practices taken from other implementations will be
+credited by name.
+
+See [AGENTS.md](AGENTS.md) for the approved cold-start contract, the v0 subset
+and the product's working constraints, and the
 [PerishLab delivery governance](https://github.com/PerishLab/.github/blob/main/GOVERNANCE.md)
 for contribution and acceptance policy.
 
