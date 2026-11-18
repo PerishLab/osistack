@@ -3,6 +3,13 @@ pub enum Error {
     Wire(wire::Error),
     Index,
     Size,
+    Length,
+    Stream,
+    Padding,
+    Setting,
+    Increment,
+    Push,
+    Kind,
 }
 
 impl From<wire::Error> for Error {
