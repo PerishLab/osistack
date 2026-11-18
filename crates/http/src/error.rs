@@ -4,4 +4,8 @@ pub enum Error {
     Character,
     Padding,
     Range,
+    Scheme,
+    Userinfo,
+    Host,
+    Port,
 }
