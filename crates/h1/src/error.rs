@@ -12,4 +12,6 @@ pub enum Error {
     Encoding,
     Chunk,
     Trailer,
+    Target,
+    Host,
 }
