@@ -4,7 +4,7 @@ ns = "osistack"
 [[layout.seat]]
 path = "crates/*"
 anchor = ["Cargo.toml"]
-note = "The responsibility boundaries of the protocol stack, three in M0 and ten at most."
+note = "Each crate has one responsibility, ten at most."
 
 [[layout.file]]
 name = ["Cargo.toml", "Cargo.lock"]
