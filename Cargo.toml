@@ -1,5 +1,5 @@
 [workspace]
-members = ["crates/wire", "crates/http", "crates/lib"]
+members = ["crates/wire", "crates/http", "crates/h1", "crates/lib"]
 resolver = "3"
 
 [workspace.package]
@@ -12,4 +12,5 @@ publish = false
 [workspace.dependencies]
 wire = { package = "osistack-wire", path = "crates/wire" }
 http = { package = "osistack-http", path = "crates/http" }
+h1 = { package = "osistack-h1", path = "crates/h1" }
 osistack = { path = "crates/lib" }

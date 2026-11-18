@@ -14,8 +14,8 @@ source is credited by name. Keep supported subsets, deliberate exclusions and
 unverified behavior distinct.
 
 This workspace has no network runtime, protocol implementation or release yet.
-It holds the contract below and three crates that establish its first real
-source. A compiling interface, a profile entry or a refusal of an unavailable
+It holds the contract below and four crates that establish its first real
+source and the first response decoder. A compiling interface, a profile entry or a refusal of an unavailable
 operation never proves protocol behavior. The contract is Issue #3; the source
 boundary that establishes it is Issue #4.
 
@@ -58,7 +58,8 @@ reason in an Issue, never drifted silently.
 ## Ownership
 
 Dependencies run from the composition crate toward the contract crates, and
-`http` and `wire` depend on nothing in this workspace. No crate performs I/O.
+`http` and `wire` depend on nothing in this workspace and `h1` depends on
+`http` alone. No crate performs I/O.
 Third-party dependencies need a real consumer, and a public build must be able
 to reach and license them.
 
@@ -79,6 +80,15 @@ to reach and license them.
   refuses the EOS symbol, padding longer than 7 bits, padding that is not all
   ones and an incomplete code. `wire` is not a toolbox and takes no unrelated
   helper.
+- `h1` owns HTTP/1.1 response decoding as pure functions over buffered bytes: the
+  status line and field section (RFC 9112 sections 4 and 5), the framing of the
+  body (section 6.3) and the chunked coding (section 7.1). It refuses what makes
+  framing ambiguous: a bare LF or CR, whitespace before a field colon, obsolete
+  line folding, `Transfer-Encoding` together with `Content-Length`, differing or
+  non-decimal lengths, a chunked coding that is not last, an overflowing chunk
+  size and trailer fields. It has no encoder, no connection state and no client,
+  and it does not decide the body of a response to HEAD or CONNECT, which the
+  caller knows and `h1` cannot.
 
 Candidate crates, at most 10 in total: `osistack`, `cli`, `http`, `h1`, `h2`
 (with HPACK), `h3` (with QPACK), `tls` (with X.509), `quic`, `crypto`, `wire`.
@@ -118,7 +128,7 @@ from the record layer because QUIC uses only the handshake (RFC 9001).
 
 ## Milestones
 
-M0 is the contract and these three crates, then attribution (O-2) and the
+M0 is the contract and its first three crates, then attribution (O-2) and the
 verification ladder (O-3). M1 is the HTTP/1.1 plaintext client with a loopback
 server and a synchronous client. M2 is the TLS 1.3 client, X.509 and HTTP/1.1
 over TLS. M3 is HTTP/2 over TLS. M4 is QUIC v1 and HTTP/3. M5 is the minimal
@@ -176,8 +186,10 @@ path supplied through the environment, which the test environment grant in
 in `CREDITS.md` first.
 
 `wire` tests pin the RFC examples and the rejection of truncated and
-overflowing input and of malformed Huffman input; `http` tests pin the rejection of malformed tokens, field
-values and status codes; `osistack` tests pin the profile against the v0 subset
+overflowing input and of malformed Huffman input; `http` tests pin the
+rejection of malformed tokens, field values and status codes; `h1` tests pin the
+RFC 9112 grammar, every framing branch and the rejection of ambiguous or
+overflowing input; `osistack` tests pin the profile against the v0 subset
 and the refusal of Fetch and Serve.
 
 Nothing here claims a protocol, TLS, QUIC or cryptographic capability, a
