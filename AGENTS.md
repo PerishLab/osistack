@@ -67,10 +67,15 @@ to reach and license them.
   unverified) and refuses operations that are not available.
 - `http` owns protocol-independent semantic types: method, status, field name
   and field value, with validation and rejection. It has no wire encoding.
-- `wire` owns binary primitives: the byte reader and writer, and the QUIC
-  variable-length integer of RFC 9000 section 16. It decodes a longer-than-
-  necessary encoding because RFC 9000 permits it and always writes the shortest.
-  It is not a toolbox and takes no unrelated helper.
+- `wire` owns binary primitives: the byte reader and writer, the QUIC
+  variable-length integer of RFC 9000 section 16, and the prefix integer of
+  RFC 7541 section 5.1 with a 1 to 8 bit prefix, shared by HPACK and QPACK. The
+  varint decoder accepts a longer-than-necessary encoding because RFC 9000
+  permits it (a Frame Type field is the exception and its owner checks the
+  length) and the encoder always writes the shortest. The prefix decoder accepts
+  zero-padded continuation bytes and refuses any value above `u64::MAX`. Huffman
+  coding is not delivered yet. `wire` is not a toolbox and takes no unrelated
+  helper.
 
 Candidate crates, at most 10 in total: `osistack`, `cli`, `http`, `h1`, `h2`
 (with HPACK), `h3` (with QPACK), `tls` (with X.509), `quic`, `crypto`, `wire`.
@@ -121,20 +126,57 @@ relations only.
 ## Verification
 
 Use focused tests while developing and the complete applicable Guard at
-coherent delivery boundaries. The ladder runs from inline RFC vectors (V0) and
-deterministic simulation with virtual time, loss and reordering (V1), through
-external differential suites (V2), Wycheproof and fuzzing (V3), read-only public
-endpoint smoke checks (V4), to consumer parity in the consumer's own repository
-(V5). V0 and V1 gate; the rest begin as baselines.
+coherent delivery boundaries. The ladder below says what each level proves, who
+runs it and whether it gates. A level that does not exist yet is stated as such
+and never reported as run.
 
-Source here follows Ectropy: no source comments, so reasoning lives in this file
-and in Issues. Names are single words, a function takes at most four parameters,
-and a compound term needs a registered vocabulary entry. Tests state their
-expectations as literals and read no repository file. The `wire` tests pin the
-RFC 9000 section 16 and appendix A.1 examples; `http` tests pin the rejection
-of malformed tokens, field values and status codes; `osistack` tests pin the
-profile against the v0 subset and the refusal of Fetch and Serve.
+| Level | What it proves | Who runs it | Gate |
+|---|---|---|---|
+| V0 | Inline RFC vectors and rejected malformed input per leaf | Guard, in the leaf's tests | Yes. Delivered now for `wire` (RFC 9000 appendix A.1, RFC 7541 appendix C.1) |
+| V1 | Deterministic simulation with virtual time, loss and reordering | Guard | Yes, once it exists. The simulator arrives with the first leaf of the QUIC line, after M1. This repository has none |
+| V2 | External differential and conformance suites: openssl, nghttpd, h2spec, h3spec, a BoGo shim, Interop Runner | The machine or a Windtun scene | No at first. None has been run and no baseline exists |
+| V3 | Wycheproof vectors and fuzzing | Machine or Guard | No at first. No corpus exists |
+| V4 | Read-only smoke checks against public endpoints | The machine | No. None has been run |
+| V5 | Consumer parity | The consumer's own repository | Never blocks osistack acceptance |
+
+An external suite is promoted into a gate only by an explicit Issue after it has
+produced a stable baseline. Passing a level never implies the levels above it.
+
+### Writing a vector test
+
+`crates/wire/tests/rfc9000.rs` and `crates/wire/tests/rfc7541.rs` are the
+models for later lines. Each file is named for the RFC it quotes and each test
+for the section or example it pins. Write the bytes and the expected value as
+literals next to one another, assert the decoding and the encoding, and include
+at least one malformed input that must be refused. A vector comes from the RFC
+text and is checked against it when added; where an RFC permits more than one
+encoding, the test records which one the code decodes and which one it writes.
+
+### Source constraints
+
+Source here follows Ectropy, with these limits verified against its checks:
+
+- No source comments. Reasoning lives in this file and in Issues.
+- Names are single words, so function and test names are single words. A
+  compound or protocol term needs a registered `[[vocabulary.term]]` entry with a
+  one-line description in `ectropy.toml`. None is registered yet.
+- A function takes at most four parameters, a tuple has at most three positions
+  and a boolean expression at most three atoms. A named type carries more.
+- Dispatch uses `match`, not a chain of `if x == literal`.
+- A directory holds at most ten entries and paths are at most three levels deep.
+- Tests state expectations as literals. They never use `CARGO_MANIFEST_DIR` and
+  never embed a repository file.
+
+There is no external corpus yet. When one is needed, its tests read it from a
+path supplied through the environment, which the test environment grant in
+`ectropy.toml` allows, and never embed it in source. Its license is registered
+in `CREDITS.md` first.
+
+`wire` tests pin the RFC examples and the rejection of truncated and
+overflowing input; `http` tests pin the rejection of malformed tokens, field
+values and status codes; `osistack` tests pin the profile against the v0 subset
+and the refusal of Fetch and Serve.
 
 Nothing here claims a protocol, TLS, QUIC or cryptographic capability, a
-release, an installation or a platform qualification. Unknown scope is not
-counted as passing.
+release, an installation or a platform qualification. No external suite baseline
+has been produced. Unknown scope is not counted as passing.
