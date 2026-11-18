@@ -25,6 +25,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "osistack-h3"
+version = "0.0.0"
+dependencies = [
+ "osistack-wire",
+]
+
+[[package]]
 name = "osistack-http"
 version = "0.0.0"
 
