@@ -73,8 +73,11 @@ to reach and license them.
   varint decoder accepts a longer-than-necessary encoding because RFC 9000
   permits it (a Frame Type field is the exception and its owner checks the
   length) and the encoder always writes the shortest. The prefix decoder accepts
-  zero-padded continuation bytes and refuses any value above `u64::MAX`. Huffman
-  coding is not delivered yet. `wire` is not a toolbox and takes no unrelated
+  zero-padded continuation bytes and refuses any value above `u64::MAX`. It also
+  owns the Huffman code of RFC 7541 appendix B, shared by HPACK and QPACK: the
+  encoder pads with the most significant bits of the EOS code, and the decoder
+  refuses the EOS symbol, padding longer than 7 bits, padding that is not all
+  ones and an incomplete code. `wire` is not a toolbox and takes no unrelated
   helper.
 
 Candidate crates, at most 10 in total: `osistack`, `cli`, `http`, `h1`, `h2`
@@ -132,7 +135,7 @@ and never reported as run.
 
 | Level | What it proves | Who runs it | Gate |
 |---|---|---|---|
-| V0 | Inline RFC vectors and rejected malformed input per leaf | Guard, in the leaf's tests | Yes. Delivered now for `wire` (RFC 9000 appendix A.1, RFC 7541 appendix C.1) |
+| V0 | Inline RFC vectors and rejected malformed input per leaf | Guard, in the leaf's tests | Yes. Delivered now for `wire` (RFC 9000 appendix A.1, RFC 7541 appendices C.1, C.4 and C.6) |
 | V1 | Deterministic simulation with virtual time, loss and reordering | Guard | Yes, once it exists. The simulator arrives with the first leaf of the QUIC line, after M1. This repository has none |
 | V2 | External differential and conformance suites: openssl, nghttpd, h2spec, h3spec, a BoGo shim, Interop Runner | The machine or a Windtun scene | No at first. None has been run and no baseline exists |
 | V3 | Wycheproof vectors and fuzzing | Machine or Guard | No at first. No corpus exists |
@@ -173,7 +176,7 @@ path supplied through the environment, which the test environment grant in
 in `CREDITS.md` first.
 
 `wire` tests pin the RFC examples and the rejection of truncated and
-overflowing input; `http` tests pin the rejection of malformed tokens, field
+overflowing input and of malformed Huffman input; `http` tests pin the rejection of malformed tokens, field
 values and status codes; `osistack` tests pin the profile against the v0 subset
 and the refusal of Fetch and Serve.
 

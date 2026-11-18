@@ -18,6 +18,7 @@ fn supported() {
             (Area::Wire, "byte-cursor"),
             (Area::Wire, "quic-varint"),
             (Area::Wire, "prefix-integer"),
+            (Area::Wire, "huffman"),
             (Area::Semantics, "method"),
             (Area::Semantics, "status"),
             (Area::Semantics, "field-name"),
@@ -94,7 +95,6 @@ fn pending() {
         (Area::Quic, "gso"),
         (Area::Quic, "newreno"),
         (Area::Http3, "qpack"),
-        (Area::Wire, "huffman"),
         (Area::Crypto, "primitives"),
         (Area::Cli, "curl-subset"),
     ];
