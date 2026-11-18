@@ -13,3 +13,7 @@ note = "The actual Rust workspace and locked dependency graph."
 [[layout.file]]
 name = ["README.md"]
 note = "Public product introduction and contribution entry."
+
+[[layout.file]]
+name = ["CREDITS.md"]
+note = "The attribution registry and borrowing rules for sources osistack learns from."

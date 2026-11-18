@@ -46,10 +46,11 @@ reason in an Issue, never drifted silently.
 - D8: Linux x86_64 GNU ships first and core code stays platform independent.
   macOS and Windows each get an independent Feature from day zero, outside the
   required leaves. The v0 trust root is an explicit PEM file only.
-- D9: Attribution lives in a registry document at the repository root, never in
-  source comments. Only MIT, Apache, ISC, BSD and curl licensed sources are
-  borrowed; GPL tlsfuzzer is an external tool only. This is an engineering
-  judgment, not legal advice.
+- D9: Attribution lives in `CREDITS.md` at the repository root, never in source
+  comments. Only MIT, Apache, ISC, BSD and curl licensed sources are borrowed;
+  GPL tlsfuzzer is an external tool only. This is an engineering judgment, not
+  legal advice. Any borrowing, whatever its level, is registered in `CREDITS.md`
+  in the same change that introduces it.
 - D10: One osistack Project plans the work. After M0 two lines run in parallel
   as a pilot; measured data decides any widening. Total effort is the user's
   to set.
