@@ -1,0 +1,15 @@
+[workspace]
+members = ["crates/wire", "crates/http", "crates/lib"]
+resolver = "3"
+
+[workspace.package]
+version = "0.0.0"
+edition = "2024"
+license = "MIT"
+repository = "https://github.com/PerishLab/osistack"
+publish = false
+
+[workspace.dependencies]
+wire = { package = "osistack-wire", path = "crates/wire" }
+http = { package = "osistack-http", path = "crates/http" }
+osistack = { path = "crates/lib" }

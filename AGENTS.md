@@ -13,7 +13,127 @@ Mature designs and best practices may be followed openly, and every such
 source is credited by name. Keep supported subsets, deliberate exclusions and
 unverified behavior distinct.
 
-Crate boundaries, protocol scope and platform contracts require explicit
-modeling before their first implementation. Introduce production sources,
-source scanning and release declarations with the capabilities they actually
-implement. This baseline contains no network runtime or release.
+This workspace has no network runtime, protocol implementation or release yet.
+It holds the contract below and three crates that establish its first real
+source. A compiling interface, a profile entry or a refusal of an unavailable
+operation never proves protocol behavior. The contract is Issue #3; the source
+boundary that establishes it is Issue #4.
+
+## Approved decisions
+
+The user approved these on 2026-11-17. A later change is recorded with its
+reason in an Issue, never drifted silently.
+
+- D1: Protocols are self-built. Cryptographic primitives first come from
+  existing implementations behind a `crypto` seam and are replaced one at a
+  time. Each replacement passes RFC vectors, Wycheproof and differential tests
+  against the existing implementation.
+- D2: TLS 1.3 only. TLS 1.2 waits until the domain's endpoint inventory proves
+  a need.
+- D3: A synchronous client comes first and every protocol core is sans-I/O. No
+  replacement of hyper or axum servers.
+- D4: The v0 subset below. The curl replacement is M5 and is modeled later from
+  observed flags.
+- D5: Only `osistack`, `http` and `wire` exist in M0. Other crates arrive with
+  the first leaf of their line, and the total never exceeds 10.
+- D6: A leaf is accepted by inline RFC vectors plus deterministic simulation.
+  External suites (h2spec, openssl differential, Interop Runner, BoGo, h3spec)
+  first produce non-gating baselines. Seatrial scenes are built before the
+  milestone that needs them.
+- D7: Until the self-built TLS passes its baseline and the user approves, no
+  credential-carrying consumer (hardrig, santi, ensign) is replaced. Loopback or
+  credential-free traffic comes first.
+- D8: Linux x86_64 GNU ships first and core code stays platform independent.
+  macOS and Windows each get an independent Feature from day zero, outside the
+  required leaves. The v0 trust root is an explicit PEM file only.
+- D9: Attribution lives in a registry document at the repository root, never in
+  source comments. Only MIT, Apache, ISC, BSD and curl licensed sources are
+  borrowed; GPL tlsfuzzer is an external tool only. This is an engineering
+  judgment, not legal advice.
+- D10: One osistack Project plans the work. After M0 two lines run in parallel
+  as a pilot; measured data decides any widening. Total effort is the user's
+  to set.
+
+## Ownership
+
+Dependencies run from the composition crate toward the contract crates, and
+`http` and `wire` depend on nothing in this workspace. No crate performs I/O.
+Third-party dependencies need a real consumer, and a public build must be able
+to reach and license them.
+
+- `osistack` (`crates/lib`) is the anchor and public entry. It re-exports
+  `http` and `wire`, publishes the capability profile (supported, excluded,
+  unverified) and refuses operations that are not available.
+- `http` owns protocol-independent semantic types: method, status, field name
+  and field value, with validation and rejection. It has no wire encoding.
+- `wire` owns binary primitives: the byte reader and writer, and the QUIC
+  variable-length integer of RFC 9000 section 16. It decodes a longer-than-
+  necessary encoding because RFC 9000 permits it and always writes the shortest.
+  It is not a toolbox and takes no unrelated helper.
+
+Candidate crates, at most 10 in total: `osistack`, `cli`, `http`, `h1`, `h2`
+(with HPACK), `h3` (with QPACK), `tls` (with X.509), `quic`, `crypto`, `wire`.
+There is no `utils` or `shared`. Seams are traits and data: `quic` defines a
+handshake provider that `tls` implements, `h3` defines a transport that `quic`
+implements, and `osistack` wires them. The TLS handshake engine stays separate
+from the record layer because QUIC uses only the handshake (RFC 9001).
+
+## v0 subset
+
+- HTTP/1.1 client: message framing, Content-Length, chunked, keep-alive pool,
+  `Connection: close`, tolerated HTTP/1.0 responses, request smuggling defense,
+  redirect policy including no-follow, total and phased timeouts, and status
+  codes that are not errors. Excluded: pipelining, Upgrade and WebSocket,
+  trailers, `Expect: 100-continue`, cookies, compression, authentication
+  schemes. Proxies are unobserved. The server is a minimal loopback test server
+  only.
+- TLS 1.3 client: X25519 and P-256, AES-GCM and ChaCha20-Poly1305, ECDSA and RSA
+  signature verification, SNI, ALPN, chain and host name validation, explicit
+  PEM roots. Excluded: TLS 1.2, resumption and 0-RTT, client certificates,
+  revocation. A TLS server exists only for tests.
+- HTTP/2 client: SETTINGS, HEADERS and CONTINUATION, DATA, WINDOW_UPDATE flow
+  control, RST_STREAM, GOAWAY, PING, complete HPACK, concurrent streams,
+  connection reuse, `SETTINGS_ENABLE_PUSH=0`. Excluded: server push, the legacy
+  priority tree, h2c upgrade (prior knowledge in tests only), extended CONNECT.
+- QUIC v1: RFC 9000 handshake with Retry, version negotiation, stream and
+  connection flow control, connection IDs, path validation, key update, RFC 9002
+  NewReno. Excluded: CUBIC and BBR, migration beyond NAT rebinding, 0-RTT,
+  DATAGRAM, multipath. ECN and GSO are unobserved.
+- HTTP/3 client: control stream and SETTINGS, HEADERS and DATA, QPACK with the
+  static and dynamic tables and blocked streams, GOAWAY, Alt-Svc discovery in
+  the client. Excluded: push and WebTransport.
+- Also excluded: user-space TCP/IP, replacing hyper or axum servers, replacing
+  the curl in Guard or CI bootstrap (it would form a bootstrap loop), chasing
+  HTTP/3 for consumers without a proven need, hardware accelerated primitives on
+  day one, and full curl parity.
+
+## Milestones
+
+M0 is the contract and these three crates, then attribution (O-2) and the
+verification ladder (O-3). M1 is the HTTP/1.1 plaintext client with a loopback
+server and a synchronous client. M2 is the TLS 1.3 client, X.509 and HTTP/1.1
+over TLS. M3 is HTTP/2 over TLS. M4 is QUIC v1 and HTTP/3. M5 is the minimal
+server, the curl subset command line and TLS 1.2 on demand. Each line is
+modeled as leaves when its turn comes; ordering uses native blocked-by
+relations only.
+
+## Verification
+
+Use focused tests while developing and the complete applicable Guard at
+coherent delivery boundaries. The ladder runs from inline RFC vectors (V0) and
+deterministic simulation with virtual time, loss and reordering (V1), through
+external differential suites (V2), Wycheproof and fuzzing (V3), read-only public
+endpoint smoke checks (V4), to consumer parity in the consumer's own repository
+(V5). V0 and V1 gate; the rest begin as baselines.
+
+Source here follows Ectropy: no source comments, so reasoning lives in this file
+and in Issues. Names are single words, a function takes at most four parameters,
+and a compound term needs a registered vocabulary entry. Tests state their
+expectations as literals and read no repository file. The `wire` tests pin the
+RFC 9000 section 16 and appendix A.1 examples; `http` tests pin the rejection
+of malformed tokens, field values and status codes; `osistack` tests pin the
+profile against the v0 subset and the refusal of Fetch and Serve.
+
+Nothing here claims a protocol, TLS, QUIC or cryptographic capability, a
+release, an installation or a platform qualification. Unknown scope is not
+counted as passing.
