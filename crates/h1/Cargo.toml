@@ -1,0 +1,13 @@
+[package]
+name = "osistack-h1"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+publish.workspace = true
+
+[lib]
+name = "h1"
+
+[dependencies]
+http.workspace = true
