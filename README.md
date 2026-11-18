@@ -23,7 +23,8 @@ platform. Designs and practices taken from other implementations will be
 credited by name.
 
 See [AGENTS.md](AGENTS.md) for the approved cold-start contract, the v0 subset
-and the product's working constraints, and the
+and the product's working constraints, [CREDITS.md](CREDITS.md) for the
+attribution registry and borrowing rules, and the
 [PerishLab delivery governance](https://github.com/PerishLab/.github/blob/main/GOVERNANCE.md)
 for contribution and acceptance policy.
 
