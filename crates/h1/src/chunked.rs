@@ -11,6 +11,20 @@ pub struct Body {
 pub struct Chunked;
 
 impl Chunked {
+    pub fn encode(data: &[u8]) -> Vec<u8> {
+        if data.is_empty() {
+            return Vec::new();
+        }
+        let mut out = format!("{:x}\r\n", data.len()).into_bytes();
+        out.extend_from_slice(data);
+        out.extend_from_slice(b"\r\n");
+        out
+    }
+
+    pub fn finish() -> Vec<u8> {
+        b"0\r\n\r\n".to_vec()
+    }
+
     pub fn decode(input: &[u8]) -> Result<Option<Body>, Error> {
         let mut data = Vec::new();
         let mut at = 0;

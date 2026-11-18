@@ -28,14 +28,14 @@ impl Framing {
     }
 }
 
-fn items(values: &[&[u8]]) -> Vec<Vec<u8>> {
+pub fn items(values: &[&[u8]]) -> Vec<Vec<u8>> {
     let parts = values
         .iter()
         .flat_map(|value| value.split(|byte| *byte == b','));
     parts.map(|part| trim(part).to_ascii_lowercase()).collect()
 }
 
-fn length(values: &[&[u8]]) -> Result<Option<u64>, Error> {
+pub fn length(values: &[&[u8]]) -> Result<Option<u64>, Error> {
     let mut found = None;
     for item in items(values) {
         let digits = !item.is_empty() && item.iter().all(u8::is_ascii_digit);
@@ -49,7 +49,7 @@ fn length(values: &[&[u8]]) -> Result<Option<u64>, Error> {
     Ok(found)
 }
 
-fn coding(values: &[&[u8]]) -> Result<Framing, Error> {
+pub fn coding(values: &[&[u8]]) -> Result<Framing, Error> {
     let named: Vec<Vec<u8>> = items(values)
         .into_iter()
         .filter(|item| !item.is_empty())

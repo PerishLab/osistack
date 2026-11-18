@@ -57,12 +57,7 @@ impl Head {
     }
 
     pub fn values(&self, name: &str) -> Vec<&[u8]> {
-        let wanted = name.to_ascii_lowercase();
-        let named = self
-            .fields
-            .iter()
-            .filter(|field| field.name.text() == wanted);
-        named.map(|field| field.value.bytes()).collect()
+        named(&self.fields, name)
     }
 }
 
@@ -117,4 +112,10 @@ fn field(line: &[u8]) -> Result<Field, Error> {
     let name = Name::new(text).map_err(|_| Error::Field)?;
     let value = Value::new(trim(&line[colon + 1..])).map_err(|_| Error::Field)?;
     Ok(Field { name, value })
+}
+
+pub fn named<'a>(fields: &'a [Field], name: &str) -> Vec<&'a [u8]> {
+    let wanted = name.to_ascii_lowercase();
+    let found = fields.iter().filter(|field| field.name.text() == wanted);
+    found.map(|field| field.value.bytes()).collect()
 }
