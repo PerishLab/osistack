@@ -56,6 +56,8 @@ pub enum Misuse {
     Exhausted,
     Window,
     Increment,
+    Setting,
+    Limit,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
