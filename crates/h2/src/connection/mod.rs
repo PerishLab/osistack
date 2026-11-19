@@ -1,4 +1,7 @@
+mod control;
 mod headers;
+
+pub use control::Notice;
 
 use crate::assembly::{Assembly, Block};
 use crate::codec::{Codec, PREFACE};
@@ -14,6 +17,7 @@ pub struct Reaction {
     pub outcome: Outcome,
     pub reply: Vec<Frame>,
     pub block: Option<Block>,
+    pub notice: Option<Notice>,
 }
 
 #[derive(Debug, Clone)]
@@ -24,6 +28,8 @@ pub struct Connection {
     streams: Streams,
     flow: Flow,
     ready: bool,
+    pings: Vec<[u8; 8]>,
+    going: Option<u32>,
     incoming: Option<Assembly>,
     outgoing: Option<u32>,
     decoder: Decoder,
@@ -50,6 +56,8 @@ impl Connection {
             streams: Streams::new(),
             flow: Flow::new(),
             ready: false,
+            pings: Vec::new(),
+            going: None,
             incoming: None,
             outgoing: None,
             decoder: Decoder::new(4096),
@@ -115,6 +123,13 @@ impl Connection {
                 Ok(())
             }
             Frame::Continuation { .. } => Err(Misuse::Block),
+            Frame::Ping {
+                ack: false, data, ..
+            } => {
+                self.pings.push(*data);
+                Ok(())
+            }
+            Frame::Goaway { last, .. } => Self::depart(*last),
             Frame::Data { stream, .. } => self.transmit(frame, *stream),
             Frame::Window {
                 stream, increment, ..
@@ -162,11 +177,14 @@ impl Connection {
                 complete,
                 block,
             } => self.extend((*stream, *complete), block),
-            Frame::Reset { stream, .. } | Frame::Priority { stream, .. } => {
+            Frame::Reset { stream, code } => self.release(frame, (*stream, *code)),
+            Frame::Priority { stream, .. } => {
                 let outcome = self.streams.receive(frame)?;
                 self.sync(*stream);
                 Ok(Self::plain(outcome))
             }
+            Frame::Ping { ack, data } => Ok(self.pinged(*ack, *data)),
+            Frame::Goaway { last, code, debug } => self.farewell((*last, *code), debug),
             _ => Ok(Self::plain(Outcome::Accept)),
         }
     }
@@ -176,6 +194,7 @@ impl Connection {
             outcome,
             reply: Vec::new(),
             block: None,
+            notice: None,
         }
     }
 
@@ -223,6 +242,7 @@ impl Connection {
                 list: Vec::new(),
             }],
             block: None,
+            notice: None,
         })
     }
 

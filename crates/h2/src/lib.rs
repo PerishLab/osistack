@@ -10,7 +10,7 @@ mod stream;
 
 pub use assembly::Block;
 pub use codec::{Codec, PREFACE};
-pub use connection::{Connection, Reaction};
+pub use connection::{Connection, Notice, Reaction};
 pub use error::Error;
 pub use flow::{Flow, INITIAL};
 pub use frame::{Dependency, Frame, Setting};
