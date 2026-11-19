@@ -24,6 +24,10 @@ impl Connection {
             block: Vec::new(),
         };
         self.admit(&probe, stream)?;
+        let total: usize = fields.iter().map(Header::size).sum();
+        if self.remote.header.is_some_and(|most| total > most as usize) {
+            return Err(Misuse::Large);
+        }
         let block = self.encoder.encode(fields);
         let frames = Self::split(stream, fin, (&block, self.remote.frame as usize));
         for frame in &frames {
@@ -85,6 +89,7 @@ impl Connection {
             outcome,
             reply: Vec::new(),
             block,
+            notice: None,
         })
     }
 
@@ -135,6 +140,9 @@ impl Connection {
         let full = self.remote.streams.is_some_and(|most| {
             self.streams.active() >= usize::try_from(most).unwrap_or(usize::MAX)
         });
+        if fresh && self.going.is_some() {
+            return Err(Misuse::Going);
+        }
         if fresh && full {
             return Err(Misuse::Limit);
         }

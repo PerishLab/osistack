@@ -63,6 +63,9 @@ pub enum Misuse {
     Setting,
     Limit,
     Block,
+    Going,
+    Last,
+    Large,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -179,6 +182,16 @@ impl Streams {
             return Err(Misuse::Exhausted);
         }
         Ok(next)
+    }
+
+    pub fn abandon(&mut self, last: u32) -> Vec<u32> {
+        let live = |state: &State| matches!(state, State::Open | State::Local | State::Remote);
+        let cut = |(stream, state): &(&u32, &State)| **stream > last && live(state);
+        let ids: Vec<u32> = self.states.iter().filter(cut).map(|(id, _)| *id).collect();
+        for stream in &ids {
+            self.states.insert(*stream, State::Closed(Close::Sent));
+        }
+        ids
     }
 
     pub fn state(&self, stream: u32) -> State {
