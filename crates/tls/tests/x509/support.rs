@@ -1,4 +1,4 @@
-use tls::x509::{Certificate, Flaw, Name, Time};
+use tls::x509::{Certificate, Der, Flaw, Name, Time};
 
 pub const RSA: &[u8] = &[0x2a, 0x86, 0x48, 0x86, 0xf7, 0x0d, 0x01, 0x01, 0x01];
 pub const RSA256: &[u8] = &[0x2a, 0x86, 0x48, 0x86, 0xf7, 0x0d, 0x01, 0x01, 0x0b];
@@ -214,4 +214,22 @@ pub fn load(text: &str) -> (Vec<u8>, Certificate) {
     let wire = hex(text);
     let cert = Certificate::parse(&wire).unwrap();
     (wire, cert)
+}
+
+pub fn rewrite(wire: &[u8], version: Option<u8>, keep: bool) -> Vec<u8> {
+    let mut top = Der::new(wire);
+    let mut outer = Der::new(top.expect(0x30).unwrap());
+    let inner = outer.expect(0x30).unwrap();
+    let rest = [outer.whole(0x30).unwrap(), outer.whole(0x03).unwrap()].concat();
+    let mut der = Der::new(inner);
+    let mut body = Vec::new();
+    while !der.done() {
+        let (tag, _, whole) = der.raw().unwrap();
+        if tag != 0xa0 && (tag != 0xa3 || keep) {
+            body.extend_from_slice(whole);
+        }
+    }
+    let head = version.map(|number| tlv(0xa0, &int(&[number])));
+    let tbs = tlv(0x30, &[head.unwrap_or_default(), body].concat());
+    tlv(0x30, &[tbs, rest].concat())
 }

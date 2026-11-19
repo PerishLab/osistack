@@ -1,7 +1,9 @@
-use crate::support::{COMMON, Parts, oid, seq, tlv};
-use tls::x509::Oid;
+use crate::data::{CA, P384, P521, RFCEC, RFCRSA, RSA};
+use crate::support::{COMMON, Parts, load, oid, seq, tlv};
+use tls::x509::{Name, Oid};
 
 const ORG: &[u8] = &[0x55, 0x04, 0x0a];
+const COUNTRY: &[u8] = &[0x55, 0x04, 0x06];
 
 fn attr(id: &[u8], tag: u8, value: &[u8]) -> Vec<u8> {
     tlv(0x31, &seq(&[&oid(id), &tlv(tag, value)]))
@@ -73,4 +75,37 @@ fn absent() {
     let only = [attr(ORG, 0x0c, b"org")];
     assert_eq!(text(&only, COMMON), None);
     assert_eq!(text(&[], COMMON), None);
+}
+
+fn pick(name: &Name) -> Vec<Option<String>> {
+    let each = |id: &[u8]| name.text(&Oid::parse(id).unwrap());
+    vec![each(COMMON), each(ORG), each(COUNTRY)]
+}
+
+fn some(items: [Option<&str>; 3]) -> Vec<Option<String>> {
+    items.iter().map(|item| item.map(String::from)).collect()
+}
+
+#[test]
+fn vectors() {
+    let rsa = some([Some("rsa"), None, None]);
+    let ec = some([Some("ecdsa256"), None, None]);
+    let leaf = some([Some("leaf.example.test"), Some("Osistack Test"), Some("US")]);
+    let root = some([Some("Wurzel CA é"), Some("Wurzel"), Some("DE")]);
+    let p384 = some([Some("p384.test"), None, None]);
+    let p521 = some([Some("p521.test"), None, None]);
+    let issuer = some([None, Some("Issuer"), None]);
+    let cases = [
+        (RFCRSA, rsa.clone(), rsa),
+        (RFCEC, ec.clone(), ec),
+        (RSA, leaf.clone(), leaf),
+        (CA, root.clone(), root),
+        (P384, p384.clone(), p384),
+        (P521, p521, issuer),
+    ];
+    for (text, subject, issuer) in cases {
+        let cert = load(text).1;
+        assert_eq!(pick(&cert.subject), subject);
+        assert_eq!(pick(&cert.issuer), issuer);
+    }
 }
