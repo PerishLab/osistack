@@ -1,3 +1,8 @@
+mod behaviour;
+#[path = "../common/mod.rs"]
+#[allow(dead_code)]
+mod common;
+
 use osistack::{Area, Availability, Operation, Profile, Refusal, State, dispatch, help};
 
 fn names(profile: &Profile, state: State) -> Vec<(Area, &'static str)> {
@@ -23,6 +28,12 @@ fn supported() {
             (Area::Semantics, "status"),
             (Area::Semantics, "field-name"),
             (Area::Semantics, "field-value"),
+            (Area::Http1, "framing"),
+            (Area::Http1, "content-length"),
+            (Area::Http1, "chunked"),
+            (Area::Http1, "connection-close"),
+            (Area::Http1, "http10-response"),
+            (Area::Http1, "status-not-error"),
         ]
     );
 }
@@ -31,7 +42,6 @@ fn supported() {
 fn protocols() {
     let profile = Profile::current();
     for area in [
-        Area::Http1,
         Area::Tls,
         Area::Http2,
         Area::Quic,
@@ -87,7 +97,12 @@ fn pending() {
     let profile = Profile::current();
     let pending = [
         (Area::Http1, "proxy"),
-        (Area::Http1, "chunked"),
+        (Area::Http1, "keep-alive-pool"),
+        (Area::Http1, "smuggling-defense"),
+        (Area::Http1, "redirect-policy"),
+        (Area::Http1, "total-timeout"),
+        (Area::Http1, "phase-timeout"),
+        (Area::Http1, "loopback-test-server"),
         (Area::Tls, "x25519"),
         (Area::Tls, "explicit-pem-roots"),
         (Area::Http2, "hpack"),
@@ -117,6 +132,9 @@ fn unique() {
             + profile.count(State::Unverified),
         profile.capabilities.len()
     );
+    assert_eq!(profile.count(State::Supported), 14);
+    assert_eq!(profile.count(State::Excluded), 32);
+    assert_eq!(profile.count(State::Unverified), 53);
 }
 
 #[test]
@@ -142,4 +160,23 @@ fn guidance() {
 fn facade() {
     assert_eq!(osistack::http::Status::new(200).unwrap().get(), 200);
     assert_eq!(osistack::wire::Varint::new(37).unwrap().get(), 37);
+}
+
+#[test]
+fn behaved() {
+    let profile = Profile::current();
+    let mut declared: Vec<&str> = profile
+        .capabilities
+        .iter()
+        .filter(|c| c.area == Area::Http1 && c.state == State::Supported)
+        .map(|c| c.name)
+        .collect();
+    let mut rows: Vec<&str> = behaviour::table().iter().map(|row| row.0).collect();
+    declared.sort_unstable();
+    rows.sort_unstable();
+    assert_eq!(rows, declared);
+    for (name, check) in behaviour::table() {
+        let outcome = std::thread::spawn(check).join();
+        assert!(outcome.is_ok(), "{name}");
+    }
 }
