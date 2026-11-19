@@ -1,4 +1,4 @@
-use quic::{Ack, Recovery, Sent, Space};
+use quic::{Ack, Arrival, Frame, Mark, Recovery, Sent, Space};
 
 pub fn packet(number: u64, time: u64) -> Sent {
     Sent {
@@ -17,6 +17,26 @@ pub fn quiet(number: u64, time: u64) -> Sent {
         size: 40,
         eliciting: false,
         flight: false,
+    }
+}
+
+pub fn arrival(serial: u64, time: u64) -> Arrival {
+    marked(serial, time, Mark::Plain)
+}
+
+pub fn silent(serial: u64, time: u64) -> Arrival {
+    Arrival {
+        eliciting: false,
+        ..arrival(serial, time)
+    }
+}
+
+pub fn marked(number: u64, time: u64, mark: Mark) -> Arrival {
+    Arrival {
+        number,
+        time,
+        eliciting: true,
+        mark,
     }
 }
 
@@ -62,5 +82,13 @@ impl Dice {
 
     pub fn below(&mut self, limit: u64) -> u64 {
         self.next() % limit
+    }
+}
+
+pub fn trip(ack: &Ack) -> Ack {
+    let bytes = Frame::join(&[Frame::Ack(ack.clone())]).unwrap();
+    match Frame::all(&bytes).unwrap().remove(0) {
+        Frame::Ack(found) => found,
+        other => panic!("{other:?}"),
     }
 }
