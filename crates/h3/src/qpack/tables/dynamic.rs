@@ -1,5 +1,5 @@
 use crate::error::Error;
-use crate::field::Field;
+use crate::qpack::field::Field;
 use std::collections::VecDeque;
 
 const OVERHEAD: usize = 32;

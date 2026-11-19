@@ -1,7 +1,7 @@
 use crate::error::Error;
-use crate::field::Field;
-use crate::section::Section;
-use crate::tables::{Dynamic, Found, Table};
+use crate::qpack::field::Field;
+use crate::qpack::section::Section;
+use crate::qpack::tables::{Dynamic, Found, Table};
 use wire::{Huffman, Prefix, Writer};
 
 struct Seen {

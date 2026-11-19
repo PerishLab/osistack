@@ -1,6 +1,6 @@
-use crate::field::Field;
-use crate::section::Section;
-use crate::stream::Feedback;
+use crate::qpack::field::Field;
+use crate::qpack::section::Section;
+use crate::qpack::stream::Feedback;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Decoded {

@@ -1,18 +1,15 @@
-mod blocked;
-mod decoder;
-mod encoder;
+mod control;
 mod error;
-mod field;
-mod lines;
-mod section;
-mod stream;
-mod tables;
+mod fault;
+mod frame;
+mod qpack;
+mod settings;
 
-pub use blocked::Decoded;
-pub use decoder::Decoder;
-pub use encoder::Encoder;
+pub use control::{Control, Notice};
 pub use error::Error;
-pub use field::Field;
-pub use section::Section;
-pub use stream::{Feedback, Instruction, Name};
-pub use tables::{Dynamic, STATIC};
+pub use fault::{Code, Fault};
+pub use frame::{Frame, Framer, Head};
+pub use qpack::{
+    Decoded, Decoder, Dynamic, Encoder, Feedback, Field, Instruction, Name, STATIC, Section,
+};
+pub use settings::Settings;
