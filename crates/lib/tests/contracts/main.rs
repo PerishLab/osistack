@@ -1,9 +1,15 @@
+mod alt;
 mod behaviour;
 #[path = "../common/mod.rs"]
 #[allow(dead_code)]
 mod common;
+mod flow;
 mod http2;
 mod http3;
+mod quic;
+mod reno;
+mod rules;
+mod tls;
 
 use osistack::{Area, Availability, Operation, Profile, Refusal, State, dispatch, help};
 
@@ -37,7 +43,15 @@ fn supported() {
             (Area::Http1, "http10-response"),
             (Area::Http1, "smuggling-defense"),
             (Area::Http1, "status-not-error"),
+            (Area::Tls, "hostname-validation"),
+            (Area::Tls, "explicit-pem-roots"),
             (Area::Http2, "hpack"),
+            (Area::Quic, "version-negotiation"),
+            (Area::Quic, "stream-flow-control"),
+            (Area::Quic, "connection-flow-control"),
+            (Area::Quic, "connection-id"),
+            (Area::Quic, "path-validation"),
+            (Area::Quic, "newreno"),
             (Area::Http3, "control-stream"),
             (Area::Http3, "settings"),
             (Area::Http3, "headers"),
@@ -45,6 +59,7 @@ fn supported() {
             (Area::Http3, "qpack"),
             (Area::Http3, "blocked-streams"),
             (Area::Http3, "goaway"),
+            (Area::Http3, "alt-svc-discovery"),
         ]
     );
 }
@@ -52,7 +67,7 @@ fn supported() {
 #[test]
 fn protocols() {
     let profile = Profile::current();
-    for area in [Area::Tls, Area::Quic, Area::Crypto, Area::Cli] {
+    for area in [Area::Crypto, Area::Cli] {
         assert!(
             profile
                 .capabilities
@@ -107,15 +122,18 @@ fn pending() {
         (Area::Http1, "phase-timeout"),
         (Area::Http1, "loopback-test-server"),
         (Area::Tls, "x25519"),
-        (Area::Tls, "explicit-pem-roots"),
+        (Area::Tls, "sni"),
+        (Area::Tls, "alpn"),
+        (Area::Tls, "chain-validation"),
         (Area::Http2, "settings"),
         (Area::Http2, "headers"),
         (Area::Http2, "data"),
         (Area::Http2, "flow-control"),
+        (Area::Quic, "v1"),
+        (Area::Quic, "retry-handshake"),
+        (Area::Quic, "key-update"),
         (Area::Quic, "ecn"),
         (Area::Quic, "gso"),
-        (Area::Quic, "newreno"),
-        (Area::Http3, "alt-svc-discovery"),
         (Area::Crypto, "primitives"),
         (Area::Cli, "curl-subset"),
     ];
@@ -138,9 +156,9 @@ fn unique() {
             + profile.count(State::Unverified),
         profile.capabilities.len()
     );
-    assert_eq!(profile.count(State::Supported), 23);
+    assert_eq!(profile.count(State::Supported), 32);
     assert_eq!(profile.count(State::Excluded), 32);
-    assert_eq!(profile.count(State::Unverified), 44);
+    assert_eq!(profile.count(State::Unverified), 35);
 }
 
 #[test]
@@ -174,7 +192,9 @@ fn behaved() {
     let tables = [
         (Area::Http1, behaviour::table()),
         (Area::Http2, http2::table()),
-        (Area::Http3, http3::table()),
+        (Area::Http3, [http3::table(), alt::table()].concat()),
+        (Area::Quic, quic::table()),
+        (Area::Tls, tls::table()),
     ];
     for (area, rows) in tables {
         let mut declared: Vec<&str> = profile
