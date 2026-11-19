@@ -6,6 +6,7 @@ mod key;
 mod name;
 mod oid;
 mod time;
+pub mod trust;
 
 pub use bits::bits;
 pub use cert::Certificate;
