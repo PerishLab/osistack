@@ -1,5 +1,5 @@
+use super::statics::STATIC;
 use crate::field::Field;
-use crate::statics::STATIC;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Found {

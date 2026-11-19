@@ -8,6 +8,8 @@ pub enum Error {
     Capacity,
     Oversize,
     Zero,
+    Blocked,
+    Reference,
 }
 
 impl From<wire::Error> for Error {
