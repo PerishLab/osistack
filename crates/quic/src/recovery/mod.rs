@@ -3,6 +3,7 @@ mod amplify;
 mod close;
 mod idle;
 mod path;
+mod receive;
 mod reno;
 mod rtt;
 mod timer;
@@ -13,6 +14,7 @@ pub use amplify::Amplify;
 pub use close::{Life, Mode, stateless};
 pub use idle::Idle;
 pub use path::{Echo, MINIMUM, Path, Probe, Validity};
+pub use receive::{Arrival, Mark, Received, Seen};
 pub use reno::Reno;
 pub use rtt::{GRANULARITY, INITIAL, Rtt};
 
