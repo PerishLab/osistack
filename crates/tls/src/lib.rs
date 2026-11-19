@@ -1,3 +1,4 @@
+mod body;
 mod error;
 mod extension;
 mod field;
@@ -6,6 +7,7 @@ mod offer;
 mod record;
 mod reply;
 
+pub use body::{Alert, Chain, Encrypted, End, Entry, Finished, Request, Ticket, Update, Verify};
 pub use error::Error;
 pub use extension::Extension;
 pub use message::{Kind, Message};
