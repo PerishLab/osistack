@@ -1,8 +1,9 @@
+use crate::data::{CA, P384, P521, RFCEC, RFCRSA, RSA};
 use crate::support::{
-    BASIC, COMMON, ECDSA256, P256, Parts, RSA256, alg, extension, flaw, int, oid, point, seq,
-    single, spki, tlv, wrap,
+    BASIC, COMMON, ECDSA256, P256, Parts, RSA256, alg, extension, flaw, hex, int, oid, point,
+    rewrite, seq, single, spki, tlv, wrap,
 };
-use tls::x509::{Algorithm, Flaw, Name, Public, Scheme};
+use tls::x509::{Algorithm, Certificate, Flaw, Name, Public, Scheme};
 
 #[test]
 fn names() {
@@ -242,4 +243,54 @@ fn bare() {
     assert_eq!(scheme(&curve(4), Some(&nil)).0, Scheme::Other);
     assert_eq!(scheme(&curve(3), Some(&seq(&[]))).0, Scheme::Other);
     assert_eq!(scheme(&curve(4), Some(&seq(&[]))).0, Scheme::Other);
+}
+
+const ALL: [&str; 6] = [RFCRSA, RFCEC, RSA, CA, P384, P521];
+
+#[test]
+fn rewritten() {
+    for text in ALL {
+        let wire = hex(text);
+        let cert = Certificate::parse(&wire).unwrap();
+        assert_eq!(rewrite(&wire, Some(2), true), wire);
+        for (number, version) in [(None, 1), (Some(1), 2)] {
+            let other = Certificate::parse(&rewrite(&wire, number, false)).unwrap();
+            assert_eq!(other.version, version);
+            assert!(other.extensions.is_empty());
+            assert_eq!(
+                (other.serial, other.signature),
+                (cert.serial.clone(), cert.signature.clone())
+            );
+            assert_eq!(
+                (other.issuer, other.subject),
+                (cert.issuer.clone(), cert.subject.clone())
+            );
+            assert_eq!((other.from, other.until), (cert.from, cert.until));
+            assert_eq!(
+                (other.key, other.spki),
+                (cert.key.clone(), cert.spki.clone())
+            );
+            assert_eq!(
+                (other.algorithm, other.outer),
+                (cert.algorithm.clone(), cert.outer.clone())
+            );
+            assert!(other.alt.is_none() && other.usage.is_none());
+        }
+    }
+}
+
+#[test]
+fn forbidden() {
+    for text in ALL {
+        let wire = hex(text);
+        let has = !Certificate::parse(&wire).unwrap().extensions.is_empty();
+        for number in [0, 3] {
+            let bent = rewrite(&wire, Some(number), false);
+            assert_eq!(Certificate::parse(&bent).unwrap_err(), Flaw::Version);
+        }
+        for number in [None, Some(1)] {
+            let bent = Certificate::parse(&rewrite(&wire, number, true));
+            assert_eq!(bent.err(), has.then_some(Flaw::Version), "{text:.12}");
+        }
+    }
 }
