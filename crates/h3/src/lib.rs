@@ -1,3 +1,4 @@
+mod alt;
 mod control;
 mod error;
 mod fault;
@@ -7,6 +8,7 @@ mod request;
 mod settings;
 mod streams;
 
+pub use alt::{Alternative, Cache, Defect, Directive, Origin};
 pub use control::{Control, Notice};
 pub use error::Error;
 pub use fault::{Code, Fault};
