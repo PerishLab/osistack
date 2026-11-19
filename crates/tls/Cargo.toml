@@ -1,0 +1,13 @@
+[package]
+name = "osistack-tls"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+publish.workspace = true
+
+[lib]
+name = "tls"
+
+[dependencies]
+wire.workspace = true

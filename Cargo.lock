@@ -45,6 +45,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "osistack-tls"
+version = "0.0.0"
+dependencies = [
+ "osistack-wire",
+]
+
+[[package]]
 name = "osistack-wire"
 version = "0.0.0"
 
