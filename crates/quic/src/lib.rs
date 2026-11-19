@@ -15,6 +15,9 @@ pub use flow::{Allowance, Choked, Credit, Inbound, Lanes, Role};
 pub use frame::{Ack, Direction, Ecn, Frame, Stream};
 pub use packet::{Header, Kind, Long, Negotiation, Number, Retry, Short};
 pub use params::{Address, Param, Params, Side};
-pub use recovery::{Fired, GRANULARITY, INITIAL, Outcome, Recovery, Reno, Rtt, Sent, Space};
+pub use recovery::{
+    Amplify, Echo, Fired, GRANULARITY, INITIAL, MINIMUM, Outcome, Path, Probe, Recovery, Reno, Rtt,
+    Sent, Space, Validity,
+};
 
 pub const VERSION: u32 = 1;
