@@ -171,15 +171,102 @@ fn matched() {
     assert!(peers.matches(&token(0)));
     assert!(!peers.matches(&token(1)));
     give(&mut peers, 1, 0).unwrap();
+    assert!(!peers.matches(&token(1)));
+    assert_eq!(peers.fresh(), Some((1, cid(1))));
     assert!(peers.matches(&token(1)));
     give(&mut peers, 2, 1).unwrap();
     assert!(!peers.matches(&token(0)));
+    assert!(peers.matches(&token(1)));
+    assert!(!peers.matches(&token(2)));
+    assert_eq!(peers.fresh(), Some((2, cid(2))));
     assert!(peers.matches(&token(2)));
     assert!(peers.release(2));
     assert!(!peers.matches(&token(2)));
     assert!(peers.matches(&token(1)));
     let none = Peers::new(cid(0), None, 4);
     assert!(!none.matches(&[0; 16]));
+}
+
+#[test]
+fn unused() {
+    let mut peers = started(4);
+    give(&mut peers, 1, 0).unwrap();
+    give(&mut peers, 2, 0).unwrap();
+    assert!(peers.matches(&token(0)));
+    assert!(!peers.matches(&token(1)));
+    assert!(!peers.matches(&token(2)));
+    assert_eq!(peers.fresh(), Some((1, cid(1))));
+    assert!(peers.matches(&token(1)));
+    assert!(!peers.matches(&token(2)));
+    assert_eq!(peers.fresh(), Some((2, cid(2))));
+    assert!(peers.matches(&token(2)));
+}
+
+#[test]
+fn mixed() {
+    let mut peers = started(6);
+    for n in 1..=4 {
+        give(&mut peers, n, 0).unwrap();
+    }
+    peers.fresh();
+    peers.fresh();
+    for n in 0..=2 {
+        assert!(peers.matches(&token(n as u8)), "{n}");
+    }
+    for n in 3..=4 {
+        assert!(!peers.matches(&token(n as u8)), "{n}");
+    }
+}
+
+#[test]
+fn turned() {
+    let mut peers = started(4);
+    give(&mut peers, 1, 0).unwrap();
+    give(&mut peers, 2, 0).unwrap();
+    assert_eq!(peers.rotate(), Some(0));
+    assert!(peers.matches(&token(1)));
+    assert!(!peers.matches(&token(0)));
+    assert!(!peers.matches(&token(2)));
+    assert_eq!(peers.rotate(), Some(1));
+    assert!(!peers.matches(&token(1)));
+    assert!(peers.matches(&token(2)));
+}
+
+#[test]
+fn promoted() {
+    let mut peers = started(4);
+    give(&mut peers, 1, 0).unwrap();
+    give(&mut peers, 2, 1).unwrap();
+    assert_eq!(peers.current().0, 1);
+    assert!(peers.matches(&token(1)));
+    assert!(!peers.matches(&token(2)));
+    assert!(!peers.matches(&token(0)));
+}
+
+#[test]
+fn retired() {
+    let mut peers = started(4);
+    give(&mut peers, 1, 0).unwrap();
+    peers.fresh();
+    assert!(peers.matches(&token(1)));
+    assert!(peers.release(1));
+    assert!(!peers.matches(&token(1)));
+    give(&mut peers, 2, 0).unwrap();
+    give(&mut peers, 3, 3).unwrap();
+    assert_eq!(peers.live(), vec![3]);
+    assert!(peers.matches(&token(3)));
+    assert!(!peers.matches(&token(2)));
+    assert!(!peers.matches(&token(0)));
+}
+
+#[test]
+fn refused() {
+    let mut peers = started(4);
+    give(&mut peers, 1, 0).unwrap();
+    assert_eq!(peers.receive(1, 0, &cid(9), token(9)), Err(Fault::Protocol));
+    assert!(!peers.matches(&token(1)));
+    assert!(!peers.matches(&token(9)));
+    assert!(peers.matches(&token(0)));
 }
 
 #[test]

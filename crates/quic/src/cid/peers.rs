@@ -132,7 +132,9 @@ impl Peers {
     }
 
     pub fn matches(&self, token: &[u8; 16]) -> bool {
-        self.live.values().any(|entry| entry.token == Some(*token))
+        self.live
+            .values()
+            .any(|entry| entry.used && entry.token == Some(*token))
     }
 
     pub fn active(&self) -> usize {
