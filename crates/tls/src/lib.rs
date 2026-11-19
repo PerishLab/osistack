@@ -6,6 +6,7 @@ mod message;
 mod offer;
 mod record;
 mod reply;
+pub mod x509;
 
 pub use body::{Alert, Chain, Encrypted, End, Entry, Finished, Request, Ticket, Update, Verify};
 pub use error::Error;
