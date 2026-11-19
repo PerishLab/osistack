@@ -15,3 +15,5 @@ wire.workspace = true
 [dev-dependencies]
 h2.workspace = true
 h3.workspace = true
+quic.workspace = true
+tls.workspace = true

@@ -10,6 +10,8 @@ dependencies = [
  "osistack-h2",
  "osistack-h3",
  "osistack-http",
+ "osistack-quic",
+ "osistack-tls",
  "osistack-wire",
  "radicula-socket",
 ]
