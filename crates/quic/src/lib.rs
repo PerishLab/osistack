@@ -11,7 +11,9 @@ mod recovery;
 pub use cid::{Issued, Peers, Refused};
 pub use error::Error;
 pub use fault::Fault;
-pub use flow::{Allowance, Choked, Credit, Inbound, Lanes, Role};
+pub use flow::{
+    Allowance, Choked, Credit, Inbound, Lanes, Phase, Piece, Receiving, Role, Sending, Stage,
+};
 pub use frame::{Ack, Direction, Ecn, Frame, Stream};
 pub use packet::{Header, Kind, Long, Negotiation, Number, Retry, Short};
 pub use params::{Address, Param, Params, Side};
