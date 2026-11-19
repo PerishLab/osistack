@@ -38,6 +38,13 @@ name = "osistack-http"
 version = "0.0.0"
 
 [[package]]
+name = "osistack-quic"
+version = "0.0.0"
+dependencies = [
+ "osistack-wire",
+]
+
+[[package]]
 name = "osistack-wire"
 version = "0.0.0"
 
