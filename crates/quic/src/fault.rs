@@ -4,6 +4,9 @@ pub enum Fault {
     Limit,
     State,
     Final,
+    Encoding,
+    Ids,
+    Protocol,
 }
 
 impl Fault {
@@ -13,6 +16,9 @@ impl Fault {
             Fault::Limit => 0x4,
             Fault::State => 0x5,
             Fault::Final => 0x6,
+            Fault::Encoding => 0x7,
+            Fault::Ids => 0x9,
+            Fault::Protocol => 0xa,
         }
     }
 }

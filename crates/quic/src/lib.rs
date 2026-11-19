@@ -1,3 +1,4 @@
+mod cid;
 mod error;
 mod fault;
 mod field;
@@ -6,6 +7,7 @@ mod frame;
 mod packet;
 mod params;
 
+pub use cid::{Issued, Peers, Refused};
 pub use error::Error;
 pub use fault::Fault;
 pub use flow::{Allowance, Choked, Credit, Inbound, Lanes, Role};
