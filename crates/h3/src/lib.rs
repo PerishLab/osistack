@@ -12,6 +12,7 @@ pub use fault::{Code, Fault};
 pub use frame::{Frame, Framer, Head};
 pub use qpack::{
     Decoded, Decoder, Dynamic, Encoder, Feedback, Field, Instruction, Name, STATIC, Section,
+    Tracker,
 };
 pub use request::{Event, Misuse, Request};
 pub use settings::Settings;

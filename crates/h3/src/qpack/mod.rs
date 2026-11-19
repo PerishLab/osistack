@@ -4,6 +4,7 @@ mod encoder;
 mod field;
 mod lines;
 mod section;
+mod sending;
 mod stream;
 mod tables;
 
@@ -12,5 +13,6 @@ pub use decoder::Decoder;
 pub use encoder::Encoder;
 pub use field::Field;
 pub use section::Section;
+pub use sending::Tracker;
 pub use stream::{Feedback, Instruction, Name};
 pub use tables::{Dynamic, STATIC};

@@ -10,6 +10,8 @@ pub enum Error {
     Zero,
     Blocked,
     Reference,
+    Pinned,
+    Feedback,
 }
 
 impl From<wire::Error> for Error {

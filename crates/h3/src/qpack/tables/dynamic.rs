@@ -1,5 +1,7 @@
+use super::table::Table;
 use crate::error::Error;
 use crate::qpack::field::Field;
+use crate::qpack::stream::Name;
 use std::collections::VecDeque;
 
 const OVERHEAD: usize = 32;
@@ -53,6 +55,30 @@ impl Dynamic {
         self.inserted.checked_sub(index)?.checked_sub(1)
     }
 
+    pub fn origin(&self, name: &Name) -> Result<Vec<u8>, Error> {
+        match name {
+            Name::Static(index) => Ok(Table::get(*index).ok_or(Error::Index)?.name),
+            Name::Dynamic(index) => {
+                let absolute = self.relative(*index).ok_or(Error::Index)?;
+                Ok(self.get(absolute).ok_or(Error::Index)?.name.clone())
+            }
+            Name::Literal(bytes) => Ok(bytes.clone()),
+        }
+    }
+
+    pub fn evictions(&self, capacity: usize, extra: usize) -> u64 {
+        let mut size = self.size;
+        let mut count = 0;
+        for entry in &self.entries {
+            if size + extra <= capacity {
+                break;
+            }
+            size -= Self::cost(entry);
+            count += 1;
+        }
+        count
+    }
+
     pub fn entries(&self) -> Vec<Field> {
         self.entries.iter().cloned().collect()
     }
@@ -87,7 +113,7 @@ impl Dynamic {
         }
     }
 
-    fn cost(field: &Field) -> usize {
+    pub fn cost(field: &Field) -> usize {
         field.name.len() + field.value.len() + OVERHEAD
     }
 }
