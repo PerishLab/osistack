@@ -1,5 +1,5 @@
 use crate::error::Error;
-use crate::ident;
+use crate::packet::ident;
 use wire::{Reader, Writer};
 
 const LIMIT: usize = 255;

@@ -1,10 +1,10 @@
 use crate::VERSION;
 use crate::error::Error;
-use crate::ident;
-use crate::long::{Kind, Long};
-use crate::negotiation::Negotiation;
-use crate::retry::Retry;
-use crate::short::Short;
+use crate::packet::ident;
+use crate::packet::long::{Kind, Long};
+use crate::packet::negotiation::Negotiation;
+use crate::packet::retry::Retry;
+use crate::packet::short::Short;
 use wire::Reader;
 
 #[derive(Debug, Clone, PartialEq, Eq)]

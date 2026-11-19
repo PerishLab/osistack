@@ -1,6 +1,6 @@
 use crate::VERSION;
 use crate::error::Error;
-use crate::ident::{self, LIMIT};
+use crate::packet::ident::{self, LIMIT};
 use wire::{Reader, Writer};
 
 const TAG: usize = 16;
