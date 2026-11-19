@@ -5,6 +5,7 @@ mod negotiation;
 mod number;
 mod retry;
 mod short;
+mod version;
 
 pub use header::Header;
 pub use long::{Kind, Long};
@@ -12,3 +13,4 @@ pub use negotiation::Negotiation;
 pub use number::Number;
 pub use retry::Retry;
 pub use short::Short;
+pub use version::{Client, Verdict, answer};
