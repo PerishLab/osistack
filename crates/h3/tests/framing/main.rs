@@ -6,3 +6,4 @@ mod request;
 mod sending;
 mod settings;
 mod support;
+mod wide;
