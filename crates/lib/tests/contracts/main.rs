@@ -2,6 +2,8 @@ mod behaviour;
 #[path = "../common/mod.rs"]
 #[allow(dead_code)]
 mod common;
+mod http2;
+mod http3;
 
 use osistack::{Area, Availability, Operation, Profile, Refusal, State, dispatch, help};
 
@@ -35,6 +37,14 @@ fn supported() {
             (Area::Http1, "http10-response"),
             (Area::Http1, "smuggling-defense"),
             (Area::Http1, "status-not-error"),
+            (Area::Http2, "hpack"),
+            (Area::Http3, "control-stream"),
+            (Area::Http3, "settings"),
+            (Area::Http3, "headers"),
+            (Area::Http3, "data"),
+            (Area::Http3, "qpack"),
+            (Area::Http3, "blocked-streams"),
+            (Area::Http3, "goaway"),
         ]
     );
 }
@@ -42,14 +52,7 @@ fn supported() {
 #[test]
 fn protocols() {
     let profile = Profile::current();
-    for area in [
-        Area::Tls,
-        Area::Http2,
-        Area::Quic,
-        Area::Http3,
-        Area::Crypto,
-        Area::Cli,
-    ] {
+    for area in [Area::Tls, Area::Quic, Area::Crypto, Area::Cli] {
         assert!(
             profile
                 .capabilities
@@ -105,11 +108,14 @@ fn pending() {
         (Area::Http1, "loopback-test-server"),
         (Area::Tls, "x25519"),
         (Area::Tls, "explicit-pem-roots"),
-        (Area::Http2, "hpack"),
+        (Area::Http2, "settings"),
+        (Area::Http2, "headers"),
+        (Area::Http2, "data"),
+        (Area::Http2, "flow-control"),
         (Area::Quic, "ecn"),
         (Area::Quic, "gso"),
         (Area::Quic, "newreno"),
-        (Area::Http3, "qpack"),
+        (Area::Http3, "alt-svc-discovery"),
         (Area::Crypto, "primitives"),
         (Area::Cli, "curl-subset"),
     ];
@@ -132,9 +138,9 @@ fn unique() {
             + profile.count(State::Unverified),
         profile.capabilities.len()
     );
-    assert_eq!(profile.count(State::Supported), 15);
+    assert_eq!(profile.count(State::Supported), 23);
     assert_eq!(profile.count(State::Excluded), 32);
-    assert_eq!(profile.count(State::Unverified), 52);
+    assert_eq!(profile.count(State::Unverified), 44);
 }
 
 #[test]
@@ -165,18 +171,28 @@ fn facade() {
 #[test]
 fn behaved() {
     let profile = Profile::current();
-    let mut declared: Vec<&str> = profile
-        .capabilities
-        .iter()
-        .filter(|c| c.area == Area::Http1 && c.state == State::Supported)
-        .map(|c| c.name)
-        .collect();
-    let mut rows: Vec<&str> = behaviour::table().iter().map(|row| row.0).collect();
-    declared.sort_unstable();
-    rows.sort_unstable();
-    assert_eq!(rows, declared);
-    for (name, check) in behaviour::table() {
-        let outcome = std::thread::spawn(check).join();
-        assert!(outcome.is_ok(), "{name}");
+    let tables = [
+        (Area::Http1, behaviour::table()),
+        (Area::Http2, http2::table()),
+        (Area::Http3, http3::table()),
+    ];
+    for (area, rows) in tables {
+        let mut declared: Vec<&str> = profile
+            .capabilities
+            .iter()
+            .filter(|c| c.area == area && c.state == State::Supported)
+            .map(|c| c.name)
+            .collect();
+        let mut named: Vec<&str> = rows.iter().map(|row| row.0).collect();
+        declared.sort_unstable();
+        named.sort_unstable();
+        assert_eq!(named, declared, "{area:?}");
+        let mut failed = Vec::new();
+        for (name, check) in rows {
+            if std::thread::spawn(check).join().is_err() {
+                failed.push(format!("{area:?} {name}"));
+            }
+        }
+        assert!(failed.is_empty(), "{failed:?}");
     }
 }

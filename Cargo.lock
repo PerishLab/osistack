@@ -7,6 +7,8 @@ name = "osistack"
 version = "0.0.0"
 dependencies = [
  "osistack-h1",
+ "osistack-h2",
+ "osistack-h3",
  "osistack-http",
  "osistack-wire",
  "radicula-socket",
