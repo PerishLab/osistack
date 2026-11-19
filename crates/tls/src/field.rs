@@ -86,6 +86,10 @@ impl Out {
         }
     }
 
+    pub fn byte(&mut self, value: u8) {
+        self.writer.byte(value);
+    }
+
     pub fn short(&mut self, value: u16) {
         self.writer.put(&value.to_be_bytes());
     }

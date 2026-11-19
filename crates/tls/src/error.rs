@@ -10,6 +10,7 @@ pub enum Error {
     Trailing,
     Value,
     Missing,
+    Place,
 }
 
 impl From<wire::Error> for Error {

@@ -9,7 +9,7 @@ mod reply;
 
 pub use body::{Alert, Chain, Encrypted, End, Entry, Finished, Request, Ticket, Update, Verify};
 pub use error::Error;
-pub use extension::Extension;
+pub use extension::{Extension, Identity, Place, Share, Typed};
 pub use message::{Kind, Message};
 pub use offer::Offer;
 pub use record::{Content, Record};

@@ -2,6 +2,10 @@ use crate::error::Error;
 use crate::field;
 use wire::{Reader, Writer};
 
+mod typed;
+
+pub use typed::{Identity, Place, Share, Typed};
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Extension {
     pub kind: u16,
