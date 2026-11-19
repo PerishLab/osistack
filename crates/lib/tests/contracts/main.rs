@@ -33,6 +33,7 @@ fn supported() {
             (Area::Http1, "chunked"),
             (Area::Http1, "connection-close"),
             (Area::Http1, "http10-response"),
+            (Area::Http1, "smuggling-defense"),
             (Area::Http1, "status-not-error"),
         ]
     );
@@ -98,7 +99,6 @@ fn pending() {
     let pending = [
         (Area::Http1, "proxy"),
         (Area::Http1, "keep-alive-pool"),
-        (Area::Http1, "smuggling-defense"),
         (Area::Http1, "redirect-policy"),
         (Area::Http1, "total-timeout"),
         (Area::Http1, "phase-timeout"),
@@ -132,9 +132,9 @@ fn unique() {
             + profile.count(State::Unverified),
         profile.capabilities.len()
     );
-    assert_eq!(profile.count(State::Supported), 14);
+    assert_eq!(profile.count(State::Supported), 15);
     assert_eq!(profile.count(State::Excluded), 32);
-    assert_eq!(profile.count(State::Unverified), 53);
+    assert_eq!(profile.count(State::Unverified), 52);
 }
 
 #[test]

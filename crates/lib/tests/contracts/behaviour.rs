@@ -12,6 +12,7 @@ pub fn table() -> Vec<(&'static str, Check)> {
         ("http10-response", legacy as Check),
         ("status-not-error", status as Check),
         ("framing", framing as Check),
+        ("smuggling-defense", smuggling as Check),
     ]
 }
 
@@ -101,4 +102,64 @@ fn framing() {
     let both = ["HTTP/1.1 200 OK\r\nContent-Length: 3\r\nTransfer-Encoding: chunked\r\n\r\nabc"];
     let outcome = fails(&both);
     assert!(matches!(outcome, Error::Frame(h1::Error::Ambiguous)));
+}
+
+fn refused(sent: &str, expected: h1::Error) {
+    let outcome = fails(&[sent]);
+    assert!(
+        matches!(outcome, Error::Frame(found) if found == expected),
+        "{sent:?}"
+    );
+}
+
+fn smuggling() {
+    let head = |fields: &str| format!("HTTP/1.1 200 OK\r\n{fields}\r\n\r\nabc");
+    let ambiguous = [
+        "Content-Length: 3\r\nTransfer-Encoding: chunked",
+        "Transfer-Encoding: chunked\r\nContent-Length: 3",
+        "Content-Length: 3\r\nTransfer-Encoding: gzip",
+    ];
+    for fields in ambiguous {
+        refused(&head(fields), h1::Error::Ambiguous);
+    }
+    let lengths = [
+        "Content-Length: 3\r\nContent-Length: 4",
+        "Content-Length: 3, 4",
+        "Content-Length: +3",
+    ];
+    for fields in lengths {
+        refused(&head(fields), h1::Error::Length);
+    }
+    let encodings = [
+        "Transfer-Encoding: chunked, chunked",
+        "Transfer-Encoding: chunked\r\nTransfer-Encoding: gzip",
+    ];
+    for fields in encodings {
+        refused(&head(fields), h1::Error::Encoding);
+    }
+    refused(&head("A: b\r\n c\r\nContent-Length: 3"), h1::Error::Fold);
+    refused(&head("Content-Length : 3"), h1::Error::Space);
+    refused(&head("A: b\nContent-Length: 3"), h1::Error::Line);
+    let chunked = "HTTP/1.1 200 OK\r\nTransfer-Encoding: chunked\r\n\r\n";
+    for chunks in [
+        "g\r\nabc\r\n0\r\n\r\n",
+        "3\r\nabcXX0\r\n\r\n",
+        "3\nabc\r\n0\r\n\r\n",
+    ] {
+        refused(&format!("{chunked}{chunks}"), h1::Error::Chunk);
+    }
+    assert_eq!(
+        body(&[&head("Content-Length: 3\r\nContent-Length: 3")]),
+        b"abc"
+    );
+    let extra = "HTTP/1.1 200 OK\r\nContent-Length: 3\r\n\r\nabcHTTP/1.1 200 OK\r\nContent-Length: 4\r\n\r\nevil";
+    assert_eq!(body(&[extra]), b"abc");
+    let server = Server::replying(text(&["HTTP/1.1 200 OK\r\nContent-Length: 0\r\n\r\n"]));
+    let method = Method::new("POST").unwrap();
+    client().fetch(method, &server.uri, b"payload").unwrap();
+    let seen = String::from_utf8(server.captured())
+        .unwrap()
+        .to_ascii_lowercase();
+    assert_eq!(seen.matches("content-length:").count(), 1);
+    assert!(!seen.contains("transfer-encoding"));
 }
