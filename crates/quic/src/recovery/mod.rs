@@ -1,10 +1,14 @@
 mod ack;
+mod amplify;
+mod path;
 mod reno;
 mod rtt;
 mod timer;
 
 use std::collections::BTreeMap;
 
+pub use amplify::Amplify;
+pub use path::{Echo, MINIMUM, Path, Probe, Validity};
 pub use reno::Reno;
 pub use rtt::{GRANULARITY, INITIAL, Rtt};
 
