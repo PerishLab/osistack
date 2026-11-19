@@ -16,3 +16,4 @@ h1 = { package = "osistack-h1", path = "crates/h1" }
 h2 = { package = "osistack-h2", path = "crates/h2" }
 h3 = { package = "osistack-h3", path = "crates/h3" }
 osistack = { path = "crates/lib" }
+socket = { package = "radicula-socket", version = "0", registry = "perish" }
