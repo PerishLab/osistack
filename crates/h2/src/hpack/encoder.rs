@@ -1,5 +1,5 @@
-use crate::header::Header;
-use crate::table::{Found, Table};
+use super::header::Header;
+use super::table::{Found, Table};
 use wire::{Huffman, Prefix, Writer};
 
 #[derive(Debug, Clone)]
