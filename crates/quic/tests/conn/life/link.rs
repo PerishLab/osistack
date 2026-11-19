@@ -94,6 +94,8 @@ fn unused() {
     let mut peers = Peers::new(vec![1; 8], Some(first), 8);
     peers.receive(1, 0, &[2; 8], second).unwrap();
     assert!(peers.matches(&first));
+    assert!(!peers.matches(&second));
+    peers.fresh();
     assert!(peers.matches(&second));
     let mut data = vec![0u8; 30];
     data[14..].copy_from_slice(&second);
