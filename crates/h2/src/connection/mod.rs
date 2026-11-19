@@ -1,6 +1,10 @@
+mod headers;
+
+use crate::assembly::{Assembly, Block};
 use crate::codec::{Codec, PREFACE};
 use crate::flow::Flow;
 use crate::frame::Frame;
+use crate::hpack::{Decoder, Encoder};
 use crate::settings::Settings;
 use crate::stream::{Code, Fault, Misuse, Outcome, State, Streams};
 use std::collections::VecDeque;
@@ -9,6 +13,7 @@ use std::collections::VecDeque;
 pub struct Reaction {
     pub outcome: Outcome,
     pub reply: Vec<Frame>,
+    pub block: Option<Block>,
 }
 
 #[derive(Debug, Clone)]
@@ -19,6 +24,10 @@ pub struct Connection {
     streams: Streams,
     flow: Flow,
     ready: bool,
+    incoming: Option<Assembly>,
+    outgoing: Option<u32>,
+    decoder: Decoder,
+    encoder: Encoder,
 }
 
 impl Connection {
@@ -41,6 +50,10 @@ impl Connection {
             streams: Streams::new(),
             flow: Flow::new(),
             ready: false,
+            incoming: None,
+            outgoing: None,
+            decoder: Decoder::new(4096),
+            encoder: Encoder::new(4096, true),
         };
         (connection, bytes)
     }
@@ -61,6 +74,14 @@ impl Connection {
         &self.flow
     }
 
+    pub fn decoder(&self) -> &Decoder {
+        &self.decoder
+    }
+
+    pub fn encoder(&self) -> &Encoder {
+        &self.encoder
+    }
+
     pub fn ready(&self) -> bool {
         self.ready
     }
@@ -78,10 +99,22 @@ impl Connection {
     }
 
     pub fn send(&mut self, frame: &Frame) -> Result<(), Misuse> {
+        if let Some(open) = self.outgoing {
+            return self.resume(frame, open);
+        }
         match frame {
             Frame::Settings { ack: true, .. } => Err(Misuse::Setting),
             Frame::Settings { list, .. } => self.propose(list),
-            Frame::Headers { stream, .. } => self.begin(frame, *stream),
+            Frame::Headers {
+                stream, complete, ..
+            } => {
+                self.begin(frame, *stream)?;
+                if !complete {
+                    self.outgoing = Some(*stream);
+                }
+                Ok(())
+            }
+            Frame::Continuation { .. } => Err(Misuse::Block),
             Frame::Data { stream, .. } => self.transmit(frame, *stream),
             Frame::Window {
                 stream, increment, ..
@@ -89,9 +122,7 @@ impl Connection {
                 self.streams.send(frame)?;
                 self.flow.grant(*stream, *increment)
             }
-            Frame::Continuation { stream, .. }
-            | Frame::Reset { stream, .. }
-            | Frame::Priority { stream, .. } => {
+            Frame::Reset { stream, .. } | Frame::Priority { stream, .. } => {
                 self.streams.send(frame)?;
                 self.sync(*stream);
                 Ok(())
@@ -105,6 +136,9 @@ impl Connection {
             code: Code::Protocol,
         };
         match frame {
+            _ if self.incoming.is_some() && !matches!(frame, Frame::Continuation { .. }) => {
+                Err(protocol)
+            }
             Frame::Settings { ack: false, list } => self.accept(list),
             _ if !self.ready => Err(protocol),
             Frame::Settings { .. } => self.confirm(),
@@ -116,10 +150,19 @@ impl Connection {
                 self.flow.credit(*stream, *increment)?;
                 Ok(Self::plain(outcome))
             }
-            Frame::Headers { stream, .. }
-            | Frame::Continuation { stream, .. }
-            | Frame::Reset { stream, .. }
-            | Frame::Priority { stream, .. } => {
+            Frame::Headers {
+                stream,
+                fin,
+                complete,
+                block,
+                ..
+            } => self.open(frame, (*stream, *fin, *complete), block),
+            Frame::Continuation {
+                stream,
+                complete,
+                block,
+            } => self.extend((*stream, *complete), block),
+            Frame::Reset { stream, .. } | Frame::Priority { stream, .. } => {
                 let outcome = self.streams.receive(frame)?;
                 self.sync(*stream);
                 Ok(Self::plain(outcome))
@@ -132,6 +175,7 @@ impl Connection {
         Reaction {
             outcome,
             reply: Vec::new(),
+            block: None,
         }
     }
 
@@ -144,13 +188,7 @@ impl Connection {
     }
 
     fn begin(&mut self, frame: &Frame, stream: u32) -> Result<(), Misuse> {
-        let fresh = !stream.is_multiple_of(2) && self.streams.state(stream) == State::Idle;
-        let full = self.remote.streams.is_some_and(|most| {
-            self.streams.active() >= usize::try_from(most).unwrap_or(usize::MAX)
-        });
-        if fresh && full {
-            return Err(Misuse::Limit);
-        }
+        self.admit(frame, stream)?;
         self.streams.send(frame)?;
         self.sync(stream);
         Ok(())
@@ -173,6 +211,9 @@ impl Connection {
         next.apply(list)?;
         next.push = false;
         self.flow.remote(next.window)?;
+        if next.table != self.remote.table {
+            self.encoder.resize(next.table as usize);
+        }
         self.remote = next;
         self.ready = true;
         Ok(Reaction {
@@ -181,6 +222,7 @@ impl Connection {
                 ack: true,
                 list: Vec::new(),
             }],
+            block: None,
         })
     }
 
@@ -191,6 +233,9 @@ impl Connection {
             });
         };
         self.flow.local(next.window)?;
+        if next.table != self.local.table {
+            self.decoder.resize(next.table as usize);
+        }
         self.local = next;
         Ok(Self::plain(Outcome::Accept))
     }

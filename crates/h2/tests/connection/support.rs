@@ -1,4 +1,4 @@
-use h2::{Connection, Fault, Frame, Reaction, Setting, Settings};
+use h2::{Codec, Connection, Fault, Frame, Header, Reaction, Setting, Settings};
 
 pub fn settings(list: &[(u16, u32)]) -> Frame {
     let list = list
@@ -73,4 +73,64 @@ pub fn feed(connection: &mut Connection, bytes: &[u8]) -> Result<Vec<Reaction>, 
         at += used;
     }
     Ok(reactions)
+}
+
+pub fn bytes(hex: &str) -> Vec<u8> {
+    (0..hex.len())
+        .step_by(2)
+        .map(|at| u8::from_str_radix(&hex[at..at + 2], 16).unwrap())
+        .collect()
+}
+
+pub fn fields(pairs: &[(&str, &str)]) -> Vec<Header> {
+    let make = |(name, value): &(&str, &str)| Header::new(name.as_bytes(), value.as_bytes());
+    pairs.iter().map(make).collect()
+}
+
+pub fn wire(codec: &Codec, frames: &[Frame]) -> Vec<u8> {
+    frames
+        .iter()
+        .flat_map(|frame| codec.encode(frame).unwrap())
+        .collect()
+}
+
+pub fn answered(table: u32) -> Connection {
+    let wanted = Settings {
+        table,
+        ..Settings::default()
+    };
+    let (mut connection, _) = Connection::start(wanted);
+    connection.receive(&settings(&[])).unwrap();
+    connection.receive(&ack()).unwrap();
+    connection
+}
+
+pub fn full(stream: u32, hex: &str, fin: bool) -> Frame {
+    Frame::Headers {
+        stream,
+        fin,
+        complete: true,
+        pad: None,
+        priority: None,
+        block: bytes(hex),
+    }
+}
+
+pub fn opening(stream: u32, hex: &str) -> Frame {
+    Frame::Headers {
+        stream,
+        fin: false,
+        complete: false,
+        pad: None,
+        priority: None,
+        block: bytes(hex),
+    }
+}
+
+pub fn more(stream: u32, hex: &str, complete: bool) -> Frame {
+    Frame::Continuation {
+        stream,
+        complete,
+        block: bytes(hex),
+    }
 }

@@ -1,3 +1,4 @@
+mod assembly;
 mod codec;
 mod connection;
 mod error;
@@ -7,6 +8,7 @@ mod hpack;
 mod settings;
 mod stream;
 
+pub use assembly::Block;
 pub use codec::{Codec, PREFACE};
 pub use connection::{Connection, Reaction};
 pub use error::Error;
