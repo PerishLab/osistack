@@ -20,8 +20,9 @@ reason in an Issue.
 
 ## Boundaries
 
-- Dependencies run from the composition crate toward the protocol crates. No
-  crate performs I/O and every protocol core is sans-I/O.
+- Dependencies run from the composition crate toward the protocol crates. Every
+  protocol core is sans-I/O; blocking I/O comes only through the `radicula-socket`
+  adapter, which `osistack` wires to the cores.
 - At most 10 crates, each with one responsibility, and never `utils` or `shared`.
   `wire` holds only binary primitives that more than one protocol shares and is
   not a toolbox.

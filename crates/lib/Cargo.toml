@@ -7,5 +7,7 @@ repository.workspace = true
 publish.workspace = true
 
 [dependencies]
+h1.workspace = true
 http.workspace = true
+socket.workspace = true
 wire.workspace = true

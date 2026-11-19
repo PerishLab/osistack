@@ -6,6 +6,10 @@ path = "crates/*"
 anchor = ["Cargo.toml"]
 note = "Each crate has one responsibility, ten at most."
 
+[[layout.seat]]
+path = ".cargo"
+note = "Cargo registry configuration."
+
 [[layout.file]]
 name = ["Cargo.toml", "Cargo.lock"]
 note = "The actual Rust workspace and locked dependency graph."

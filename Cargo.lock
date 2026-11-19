@@ -6,8 +6,10 @@ version = 4
 name = "osistack"
 version = "0.0.0"
 dependencies = [
+ "osistack-h1",
  "osistack-http",
  "osistack-wire",
+ "radicula-socket",
 ]
 
 [[package]]
@@ -38,3 +40,9 @@ version = "0.0.0"
 [[package]]
 name = "osistack-wire"
 version = "0.0.0"
+
+[[package]]
+name = "radicula-socket"
+version = "0.18.0"
+source = "sparse+https://cargo.perish.uk/"
+checksum = "25a90ae9f9af5d585da0887215d96906faccd4cb256a37aa9241dc697c10e6f7"
