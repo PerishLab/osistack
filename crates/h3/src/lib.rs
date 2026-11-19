@@ -5,6 +5,7 @@ mod frame;
 mod qpack;
 mod request;
 mod settings;
+mod streams;
 
 pub use control::{Control, Notice};
 pub use error::Error;
@@ -16,3 +17,4 @@ pub use qpack::{
 };
 pub use request::{Event, Misuse, Request};
 pub use settings::Settings;
+pub use streams::{Going, Streams};
