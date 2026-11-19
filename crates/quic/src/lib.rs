@@ -18,8 +18,9 @@ pub use frame::{Ack, Direction, Ecn, Frame, Stream};
 pub use packet::{Client, Header, Kind, Long, Negotiation, Number, Retry, Short, Verdict, answer};
 pub use params::{Address, Param, Params, Side};
 pub use recovery::{
-    Amplify, Arrival, Echo, Fired, GRANULARITY, INITIAL, Idle, Life, MINIMUM, Mark, Mode, Outcome,
-    Path, Probe, Received, Recovery, Reno, Rtt, Seen, Sent, Space, Validity, stateless,
+    Amplify, Arrival, Echo, Fired, GRANULARITY, INITIAL, Idle, Life, MINIMUM, Mark, Marking, Mode,
+    Outcome, Path, Probe, Received, Recovery, Reno, Report, Rtt, Seen, Sent, Space, Status,
+    Validity, stateless,
 };
 
 pub const VERSION: u32 = 1;

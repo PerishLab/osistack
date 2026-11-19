@@ -10,6 +10,7 @@ mod timer;
 
 use std::collections::BTreeMap;
 
+pub use ack::{Marking, Report, Status};
 pub use amplify::Amplify;
 pub use close::{Life, Mode, stateless};
 pub use idle::Idle;

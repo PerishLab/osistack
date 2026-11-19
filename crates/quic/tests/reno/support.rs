@@ -1,4 +1,4 @@
-use quic::{Ack, Rtt, Sent};
+use quic::{Ack, Ecn, Marking, Report, Rtt, Sent, Space, Status};
 use std::collections::BTreeSet;
 
 pub fn packet(number: u64, time: u64) -> Sent {
@@ -82,4 +82,34 @@ impl Dice {
     pub fn below(&mut self, limit: u64) -> u64 {
         self.next() % limit
     }
+}
+
+pub fn reply(largest: u64, first: u64, ecn: Option<Ecn>) -> Ack {
+    Ack {
+        largest,
+        delay: 0,
+        first,
+        ranges: Vec::new(),
+        ecn,
+    }
+}
+
+pub fn counts(ect0: u64, ect1: u64, ce: u64) -> Option<Ecn> {
+    Some(Ecn { ect0, ect1, ce })
+}
+
+pub fn only(ect0: u64) -> Option<Ecn> {
+    counts(ect0, 0, 0)
+}
+
+pub fn armed(limit: u64, count: u64) -> Marking {
+    let mut marking = Marking::new(limit, false);
+    for number in 0..count {
+        marking.send(Space::Data, number);
+    }
+    marking
+}
+
+pub fn verdict(status: Status, congested: bool) -> Report {
+    Report { status, congested }
 }
