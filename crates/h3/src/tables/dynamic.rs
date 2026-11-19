@@ -24,6 +24,10 @@ impl Dynamic {
         }
     }
 
+    pub fn maximum(&self) -> usize {
+        self.maximum
+    }
+
     pub fn capacity(&self) -> usize {
         self.capacity
     }

@@ -1,16 +1,21 @@
-use crate::dynamic::Dynamic;
+use crate::blocked::{Decoded, Waiting};
 use crate::error::Error;
 use crate::field::Field;
+use crate::lines::Lines;
 use crate::section::Section;
+use crate::stream::Feedback;
 use crate::stream::{Instruction, Name};
-use crate::table::Table;
-use wire::{Huffman, Prefix, Reader};
+use crate::tables::{Dynamic, Table};
+use wire::{Huffman, Reader};
 
 #[derive(Debug, Clone)]
 pub struct Decoder {
     capacity: usize,
     huffman: Huffman,
     table: Dynamic,
+    limit: usize,
+    known: u64,
+    waiting: Vec<Waiting>,
 }
 
 impl Decoder {
@@ -19,7 +24,22 @@ impl Decoder {
             capacity,
             huffman: Huffman::new(),
             table: Dynamic::new(capacity),
+            limit: 0,
+            known: 0,
+            waiting: Vec::new(),
         }
+    }
+
+    pub fn blocked(self, limit: usize) -> Self {
+        Self { limit, ..self }
+    }
+
+    pub fn known(&self) -> u64 {
+        self.known
+    }
+
+    pub fn waiting(&self) -> usize {
+        self.waiting.len()
     }
 
     pub fn table(&self) -> &Dynamic {
@@ -59,7 +79,7 @@ impl Decoder {
 
     fn source(&self, name: Name) -> Result<Vec<u8>, Error> {
         match name {
-            Name::Static(index) => Ok(Self::entry(index as u64)?.name),
+            Name::Static(index) => Ok(Table::get(index).ok_or(Error::Index)?.name),
             Name::Dynamic(index) => Ok(self.past(index)?.name),
             Name::Literal(bytes) => Ok(bytes),
         }
@@ -67,67 +87,63 @@ impl Decoder {
 
     pub fn decode(&self, block: &[u8]) -> Result<Vec<Field>, Error> {
         let mut reader = Reader::new(block);
-        if Section::read(&mut reader, self.capacity, 0)?.required > 0 {
+        let section = Section::read(&mut reader, self.capacity, 0)?;
+        if section.required > 0 {
             return Err(Error::Dynamic);
         }
-        let mut fields = Vec::new();
-        while reader.left() > 0 {
-            let lead = block[reader.at()];
-            fields.push(match lead {
-                0xc0..=0xff => Self::indexed(&mut reader)?,
-                0x50..=0x5f | 0x70..=0x7f => self.named(&mut reader)?,
-                0x20..=0x3f => self.literal(&mut reader)?,
-                _ => return Err(Error::Dynamic),
-            });
+        let lines = Lines::new(&self.huffman, &self.table, section);
+        lines.all(&block[reader.at()..])
+    }
+
+    pub fn section(&mut self, stream: u64, block: &[u8]) -> Result<Option<Decoded>, Error> {
+        let mut reader = Reader::new(block);
+        let section = Section::read(&mut reader, self.capacity, self.table.inserted())?;
+        let rest = block[reader.at()..].to_vec();
+        if section.required <= self.table.inserted() {
+            return self.finish(stream, section, &rest).map(Some);
         }
-        Ok(fields)
-    }
-
-    fn indexed(reader: &mut Reader) -> Result<Field, Error> {
-        let index = reader.prefixed(Prefix::new(6)?)?.value;
-        Self::entry(index)
-    }
-
-    fn named(&self, reader: &mut Reader) -> Result<Field, Error> {
-        let prefixed = reader.prefixed(Prefix::new(4)?)?;
-        let name = Self::entry(prefixed.value)?.name;
-        let value = self.string(reader)?;
-        Ok(Field {
-            name,
-            value,
-            sensitive: prefixed.high & 0x20 != 0,
-        })
-    }
-
-    fn literal(&self, reader: &mut Reader) -> Result<Field, Error> {
-        let prefixed = reader.prefixed(Prefix::new(3)?)?;
-        let name = self.bytes(reader, prefixed.value, prefixed.high & 0x08 != 0)?;
-        let value = self.string(reader)?;
-        Ok(Field {
-            name,
-            value,
-            sensitive: prefixed.high & 0x10 != 0,
-        })
-    }
-
-    fn entry(index: u64) -> Result<Field, Error> {
-        usize::try_from(index)
-            .ok()
-            .and_then(Table::get)
-            .ok_or(Error::Index)
-    }
-
-    fn string(&self, reader: &mut Reader) -> Result<Vec<u8>, Error> {
-        let prefixed = reader.prefixed(Prefix::new(7)?)?;
-        self.bytes(reader, prefixed.value, prefixed.high & 0x80 != 0)
-    }
-
-    fn bytes(&self, reader: &mut Reader, size: u64, huffman: bool) -> Result<Vec<u8>, Error> {
-        let length = usize::try_from(size).map_err(|_| wire::Error::Range)?;
-        let raw = reader.take(length)?;
-        if !huffman {
-            return Ok(raw.to_vec());
+        if self.waiting.len() >= self.limit {
+            return Err(Error::Blocked);
         }
-        Ok(self.huffman.decode(raw)?)
+        self.waiting.push(Waiting {
+            stream,
+            section,
+            rest,
+        });
+        Ok(None)
+    }
+
+    pub fn ready(&mut self) -> Result<Vec<Decoded>, Error> {
+        let inserted = self.table.inserted();
+        let (go, keep) = std::mem::take(&mut self.waiting)
+            .into_iter()
+            .partition::<Vec<_>, _>(|waiting| waiting.section.required <= inserted);
+        self.waiting = keep;
+        go.iter()
+            .map(|waiting| self.finish(waiting.stream, waiting.section, &waiting.rest))
+            .collect()
+    }
+
+    pub fn cancel(&mut self, stream: u64) -> Feedback {
+        self.waiting.retain(|waiting| waiting.stream != stream);
+        Feedback::Cancel(stream)
+    }
+
+    pub fn increment(&mut self) -> Option<Feedback> {
+        let delta = self.table.inserted().saturating_sub(self.known);
+        self.known += delta;
+        (delta > 0).then_some(Feedback::Increment(delta))
+    }
+
+    fn finish(&mut self, stream: u64, section: Section, rest: &[u8]) -> Result<Decoded, Error> {
+        let lines = Lines::new(&self.huffman, &self.table, section);
+        let fields = lines.all(rest)?;
+        let feedback = (section.required > 0).then_some(Feedback::Acknowledge(stream));
+        self.known = self.known.max(section.required);
+        Ok(Decoded {
+            stream,
+            fields,
+            feedback,
+        })
     }
 }
