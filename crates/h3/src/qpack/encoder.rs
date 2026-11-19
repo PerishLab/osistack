@@ -36,15 +36,25 @@ impl Encoder {
         base: u64,
         fields: &[Field],
     ) -> Result<Vec<u8>, Error> {
+        self.trace((table, base, u64::MAX), fields)
+            .map(|(block, _)| block)
+    }
+
+    pub fn trace(
+        &self,
+        view: (&Dynamic, u64, u64),
+        fields: &[Field],
+    ) -> Result<(Vec<u8>, Vec<u64>), Error> {
+        let (table, base, _) = view;
         if base > table.inserted() {
             return Err(Error::Base);
         }
         let mut body = Writer::new();
-        let mut required = 0;
+        let mut cited = Vec::new();
         for field in fields {
-            let used = self.cite(&mut body, (table, base), field);
-            required = required.max(used.map_or(0, |absolute| absolute + 1));
+            cited.extend(self.cite(&mut body, view, field));
         }
+        let required = cited.iter().max().map_or(0, |absolute| absolute + 1);
         let section = Section {
             required,
             base: if required == 0 { 0 } else { base },
@@ -52,12 +62,12 @@ impl Encoder {
         let mut head = Writer::new();
         section.write(&mut head, table.maximum())?;
         head.put(&body.finish());
-        Ok(head.finish())
+        Ok((head.finish(), cited))
     }
 
-    fn cite(&self, writer: &mut Writer, view: (&Dynamic, u64), field: &Field) -> Option<u64> {
-        let (table, base) = view;
-        let seen = Self::seek(table, field);
+    fn cite(&self, writer: &mut Writer, view: (&Dynamic, u64, u64), field: &Field) -> Option<u64> {
+        let (table, base, bound) = view;
+        let seen = Self::seek(table, bound, field);
         let fixed = Table::find(field);
         let secret = field.sensitive;
         if let (Found::Full(index), false) = (fixed, secret) {
@@ -85,7 +95,7 @@ impl Encoder {
         None
     }
 
-    fn seek(table: &Dynamic, field: &Field) -> Seen {
+    fn seek(table: &Dynamic, bound: u64, field: &Field) -> Seen {
         let dropped = table.dropped();
         let mut seen = Seen {
             full: None,
@@ -93,7 +103,7 @@ impl Encoder {
         };
         for (offset, entry) in table.entries().iter().enumerate().rev() {
             let absolute = dropped + offset as u64;
-            if entry.name != field.name {
+            if absolute >= bound || entry.name != field.name {
                 continue;
             }
             seen.name = seen.name.or(Some(absolute));
