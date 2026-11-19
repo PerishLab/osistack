@@ -13,6 +13,6 @@ pub use decoder::Decoder;
 pub use encoder::Encoder;
 pub use field::Field;
 pub use section::Section;
-pub use sending::Tracker;
+pub use sending::{Encoded, Sender, Tracker};
 pub use stream::{Feedback, Instruction, Name};
 pub use tables::{Dynamic, STATIC};
