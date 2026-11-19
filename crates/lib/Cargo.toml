@@ -11,3 +11,7 @@ h1.workspace = true
 http.workspace = true
 socket.workspace = true
 wire.workspace = true
+
+[dev-dependencies]
+h2.workspace = true
+h3.workspace = true
