@@ -5,6 +5,9 @@ pub enum Error {
     Dynamic,
     Count,
     Base,
+    Capacity,
+    Oversize,
+    Zero,
 }
 
 impl From<wire::Error> for Error {

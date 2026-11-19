@@ -1,6 +1,8 @@
+use crate::dynamic::Dynamic;
 use crate::error::Error;
 use crate::field::Field;
 use crate::section::Section;
+use crate::stream::{Instruction, Name};
 use crate::table::Table;
 use wire::{Huffman, Prefix, Reader};
 
@@ -8,6 +10,7 @@ use wire::{Huffman, Prefix, Reader};
 pub struct Decoder {
     capacity: usize,
     huffman: Huffman,
+    table: Dynamic,
 }
 
 impl Decoder {
@@ -15,6 +18,50 @@ impl Decoder {
         Self {
             capacity,
             huffman: Huffman::new(),
+            table: Dynamic::new(capacity),
+        }
+    }
+
+    pub fn table(&self) -> &Dynamic {
+        &self.table
+    }
+
+    pub fn apply(&mut self, input: &[u8]) -> Result<usize, Error> {
+        let mut used = 0;
+        while let Some((instruction, size)) = Instruction::decode(&input[used..], &self.huffman)? {
+            self.run(instruction)?;
+            used += size;
+        }
+        Ok(used)
+    }
+
+    fn run(&mut self, instruction: Instruction) -> Result<(), Error> {
+        match instruction {
+            Instruction::Capacity(value) => {
+                let value = usize::try_from(value).map_err(|_| Error::Capacity)?;
+                self.table.resize(value)
+            }
+            Instruction::Duplicate(index) => {
+                let field = self.past(index)?;
+                self.table.insert(field).map(|_| ())
+            }
+            Instruction::Insert { name, value } => {
+                let name = self.source(name)?;
+                self.table.insert(Field::new(&name, &value)).map(|_| ())
+            }
+        }
+    }
+
+    fn past(&self, index: u64) -> Result<Field, Error> {
+        let absolute = self.table.relative(index).ok_or(Error::Index)?;
+        self.table.get(absolute).cloned().ok_or(Error::Index)
+    }
+
+    fn source(&self, name: Name) -> Result<Vec<u8>, Error> {
+        match name {
+            Name::Static(index) => Ok(Self::entry(index as u64)?.name),
+            Name::Dynamic(index) => Ok(self.past(index)?.name),
+            Name::Literal(bytes) => Ok(bytes),
         }
     }
 
