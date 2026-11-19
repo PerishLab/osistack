@@ -1,9 +1,11 @@
 mod ack;
+mod reno;
 mod rtt;
 mod timer;
 
 use std::collections::BTreeMap;
 
+pub use reno::Reno;
 pub use rtt::{GRANULARITY, INITIAL, Rtt};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
