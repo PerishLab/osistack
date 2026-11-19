@@ -1,7 +1,7 @@
 use crate::behaviour::Check;
 use h3::{
-    Code, Control, Decoder, Encoder, Error, Event, Fault, Feedback, Field, Frame, Misuse, Notice,
-    Request, Sender, Settings,
+    Code, Control, Decoder, Encoder, Error, Event, Fault, Feedback, Field, Frame, Going, Misuse,
+    Notice, Request, Sender, Settings, Streams,
 };
 
 pub fn table() -> Vec<(&'static str, Check)> {
@@ -187,6 +187,15 @@ fn goaway() {
     assert_eq!(client.feed(&frame(&Frame::Goaway(8))), Err(fault(Code::Id)));
     let (_, mut other) = joined();
     assert_eq!(other.feed(&frame(&Frame::Goaway(5))), Err(fault(Code::Id)));
+    let (_, mut client) = joined();
+    let mut streams = Streams::new();
+    let opened: Vec<u64> = (0..4).map(|_| streams.open().unwrap()).collect();
+    assert_eq!(opened, vec![0, 4, 8, 12]);
+    let notices = client.feed(&frame(&Frame::Goaway(8))).unwrap();
+    assert_eq!(notices, vec![Notice::Goaway(8)]);
+    assert_eq!(streams.goaway(8).unwrap(), vec![8, 12]);
+    assert_eq!(streams.active(), vec![0, 4]);
+    assert_eq!(streams.open(), Err(Going(8)));
 }
 
 fn qpack() {
