@@ -1,6 +1,6 @@
 use crate::error::Error;
-use crate::ident::LIMIT;
-use crate::number::Number;
+use crate::packet::ident::LIMIT;
+use crate::packet::number::Number;
 use wire::{Reader, Writer};
 
 #[derive(Debug, Clone, PartialEq, Eq)]

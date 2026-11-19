@@ -1,7 +1,7 @@
 use crate::VERSION;
 use crate::error::Error;
-use crate::ident::{self, LIMIT};
-use crate::number::Number;
+use crate::packet::ident::{self, LIMIT};
+use crate::packet::number::Number;
 use wire::{Reader, Varint, Writer};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

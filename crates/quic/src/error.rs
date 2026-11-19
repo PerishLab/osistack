@@ -9,6 +9,11 @@ pub enum Error {
     Token,
     Number,
     Versions,
+    Kind,
+    Minimal,
+    Value,
+    Empty,
+    Duplicate,
 }
 
 impl From<wire::Error> for Error {

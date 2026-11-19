@@ -1,18 +1,12 @@
 mod error;
-mod header;
-mod ident;
-mod long;
-mod negotiation;
-mod number;
-mod retry;
-mod short;
+mod field;
+mod frame;
+mod packet;
+mod params;
 
 pub use error::Error;
-pub use header::Header;
-pub use long::{Kind, Long};
-pub use negotiation::Negotiation;
-pub use number::Number;
-pub use retry::Retry;
-pub use short::Short;
+pub use frame::{Ack, Direction, Ecn, Frame, Stream};
+pub use packet::{Header, Kind, Long, Negotiation, Number, Retry, Short};
+pub use params::{Address, Param, Params, Side};
 
 pub const VERSION: u32 = 1;
