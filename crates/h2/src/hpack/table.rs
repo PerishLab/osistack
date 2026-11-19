@@ -1,5 +1,5 @@
-use crate::header::Header;
-use crate::statics::STATIC;
+use super::header::Header;
+use super::statics::STATIC;
 use std::collections::VecDeque;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

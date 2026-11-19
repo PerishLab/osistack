@@ -1,6 +1,6 @@
+use super::header::Header;
+use super::table::Table;
 use crate::error::Error;
-use crate::header::Header;
-use crate::table::Table;
 use wire::{Huffman, Prefix, Reader};
 
 #[derive(Debug, Clone)]

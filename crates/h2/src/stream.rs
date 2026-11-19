@@ -20,6 +20,7 @@ pub enum State {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Code {
     Protocol,
+    Flow,
     Closed,
 }
 
@@ -27,6 +28,7 @@ impl Code {
     pub fn get(self) -> u32 {
         match self {
             Code::Protocol => 0x1,
+            Code::Flow => 0x3,
             Code::Closed => 0x5,
         }
     }
@@ -52,6 +54,8 @@ pub enum Misuse {
     Half,
     Closed,
     Exhausted,
+    Window,
+    Increment,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

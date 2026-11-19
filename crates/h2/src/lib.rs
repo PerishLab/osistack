@@ -1,17 +1,13 @@
 mod codec;
-mod decoder;
-mod encoder;
 mod error;
+mod flow;
 mod frame;
-mod header;
-mod statics;
+mod hpack;
 mod stream;
-mod table;
 
 pub use codec::{Codec, PREFACE};
-pub use decoder::Decoder;
-pub use encoder::Encoder;
 pub use error::Error;
+pub use flow::{Flow, INITIAL};
 pub use frame::{Dependency, Frame, Setting};
-pub use header::Header;
+pub use hpack::{Decoder, Encoder, Header};
 pub use stream::{Close, Code, Fault, Misuse, Outcome, State, Streams};
