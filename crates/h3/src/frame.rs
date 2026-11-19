@@ -142,6 +142,8 @@ pub struct Framer {
     buffer: Vec<u8>,
     limit: usize,
     skip: u64,
+    stream: bool,
+    data: u64,
 }
 
 impl Framer {
@@ -150,7 +152,24 @@ impl Framer {
             buffer: Vec::new(),
             limit,
             skip: 0,
+            stream: false,
+            data: 0,
         }
+    }
+
+    pub fn streaming(limit: usize) -> Self {
+        Self {
+            stream: true,
+            ..Self::new(limit)
+        }
+    }
+
+    pub fn pending(&self) -> usize {
+        self.buffer.len()
+    }
+
+    pub fn complete(&self) -> bool {
+        self.buffer.is_empty() && self.skip == 0 && self.data == 0
     }
 
     pub fn feed(&mut self, bytes: &[u8]) -> Result<Vec<Frame>, Fault> {
@@ -160,10 +179,23 @@ impl Framer {
             if self.skip > 0 && !self.drop() {
                 return Ok(frames);
             }
+            if self.data > 0 {
+                let Some(frame) = self.chunk() else {
+                    return Ok(frames);
+                };
+                frames.push(frame);
+                continue;
+            }
             let Some((head, used)) = Head::read(&self.buffer) else {
                 return Ok(frames);
             };
-            if head.buffered()? {
+            if self.stream && head.kind == 0 {
+                self.buffer.drain(..used);
+                self.data = head.length;
+                if head.length == 0 {
+                    frames.push(Frame::Data(Vec::new()));
+                }
+            } else if head.buffered()? {
                 let Some((frame, total)) = Frame::decode(&self.buffer, self.limit)? else {
                     return Ok(frames);
                 };
@@ -180,8 +212,15 @@ impl Framer {
         }
     }
 
-    pub fn pending(&self) -> usize {
-        self.buffer.len()
+    fn chunk(&mut self) -> Option<Frame> {
+        let most = usize::try_from(self.data).unwrap_or(usize::MAX);
+        let taken = self.buffer.len().min(most);
+        if taken == 0 {
+            return None;
+        }
+        let bytes: Vec<u8> = self.buffer.drain(..taken).collect();
+        self.data -= taken as u64;
+        Some(Frame::Data(bytes))
     }
 
     fn drop(&mut self) -> bool {
