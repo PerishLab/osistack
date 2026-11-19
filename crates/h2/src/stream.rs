@@ -22,6 +22,8 @@ pub enum Code {
     Protocol,
     Flow,
     Closed,
+    Compression,
+    Calm,
 }
 
 impl Code {
@@ -30,6 +32,8 @@ impl Code {
             Code::Protocol => 0x1,
             Code::Flow => 0x3,
             Code::Closed => 0x5,
+            Code::Compression => 0x9,
+            Code::Calm => 0xb,
         }
     }
 }
@@ -58,6 +62,7 @@ pub enum Misuse {
     Increment,
     Setting,
     Limit,
+    Block,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -189,23 +194,33 @@ impl Streams {
         self.states.values().filter(live).count()
     }
 
+    pub fn check(&self, frame: &Frame) -> Result<(), Misuse> {
+        self.plan(frame).map(|_| ())
+    }
+
     pub fn send(&mut self, frame: &Frame) -> Result<(), Misuse> {
+        if let Some((stream, next)) = self.plan(frame)? {
+            self.record(stream, next);
+        }
+        Ok(())
+    }
+
+    fn plan(&self, frame: &Frame) -> Result<Option<(u32, State)>, Misuse> {
         let Some((stream, event)) = Event::of(frame) else {
-            return Ok(());
+            return Ok(None);
         };
         if stream == 0 {
             return if event == Event::Window {
-                Ok(())
+                Ok(None)
             } else {
                 Err(Misuse::Zero)
             };
         }
         if event == Event::Priority {
-            return Ok(());
+            return Ok(None);
         }
         let next = self.state(stream).sent(stream, event)?;
-        self.record(stream, next);
-        Ok(())
+        Ok(Some((stream, next)))
     }
 
     pub fn receive(&mut self, frame: &Frame) -> Result<Outcome, Fault> {

@@ -1,5 +1,9 @@
+mod appendix;
+mod faults;
 mod invariant;
 mod preface;
 mod settings;
 mod support;
+mod tables;
+mod vectors;
 mod violations;
