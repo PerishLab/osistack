@@ -5,7 +5,7 @@ use crate::qpack::lines::Lines;
 use crate::qpack::section::Section;
 use crate::qpack::stream::Feedback;
 use crate::qpack::stream::{Instruction, Name};
-use crate::qpack::tables::{Dynamic, Table};
+use crate::qpack::tables::Dynamic;
 use wire::{Huffman, Reader};
 
 #[derive(Debug, Clone)]
@@ -78,11 +78,7 @@ impl Decoder {
     }
 
     fn source(&self, name: Name) -> Result<Vec<u8>, Error> {
-        match name {
-            Name::Static(index) => Ok(Table::get(index).ok_or(Error::Index)?.name),
-            Name::Dynamic(index) => Ok(self.past(index)?.name),
-            Name::Literal(bytes) => Ok(bytes),
-        }
+        self.table.origin(&name)
     }
 
     pub fn decode(&self, block: &[u8]) -> Result<Vec<Field>, Error> {
