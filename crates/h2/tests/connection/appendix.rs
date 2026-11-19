@@ -79,3 +79,28 @@ fn responses() {
         drive(&RESPONSES, 256, style);
     }
 }
+
+#[test]
+fn exchange() {
+    let key = ("x-key", "value");
+    let big = "a".repeat(100_000);
+    let list = fields(&[(":method", "GET"), ("x-big", &big), key]);
+    let mut sender = ready(&[]);
+    let mut peer = ready(&[]);
+    for stream in [1u32, 3] {
+        let frames = sender.headers(stream, &list, true).unwrap();
+        assert!(frames.len() > 2);
+        peer.send(&Stream(stream).headers(false)).unwrap();
+        let bytes = wire(&sender.outbound(), &frames);
+        let reactions = feed(&mut peer, &bytes).unwrap();
+        assert_eq!(reactions.len(), frames.len());
+        let expected = Block {
+            stream,
+            fields: list.clone(),
+            fin: true,
+        };
+        assert_eq!(reactions.last().unwrap().block, Some(expected));
+        assert_eq!(peer.decoder().dynamic(), sender.encoder().dynamic());
+        assert_eq!(peer.decoder().dynamic(), fields(&[key]));
+    }
+}
