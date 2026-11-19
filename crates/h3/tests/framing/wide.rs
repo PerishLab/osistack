@@ -34,9 +34,16 @@ fn eightbyte() {
 
 #[test]
 fn partial() {
-    let whole = bytes("00 c0 00 00 00 00 00 00 02 68 69");
-    for cut in 0..whole.len() {
-        assert_eq!(Frame::decode(&whole[..cut], LIMIT), Ok(None), "{cut}");
+    let frames = [
+        "00 c0 00 00 00 00 00 00 02 68 69",
+        "07 c0 00 00 00 00 00 00 01 08",
+    ];
+    for hex in frames {
+        let whole = bytes(hex);
+        for cut in 0..whole.len() {
+            assert_eq!(Frame::decode(&whole[..cut], LIMIT), Ok(None), "{hex} {cut}");
+        }
+        assert!(Frame::decode(&whole, LIMIT).unwrap().is_some());
     }
 }
 
