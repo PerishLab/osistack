@@ -1,0 +1,9 @@
+mod appendix;
+mod dynamic;
+mod instruction;
+mod limits;
+mod reject;
+mod roundtrip;
+mod section;
+mod table;
+mod vectors;

@@ -1,11 +1,11 @@
-use crate::blocked::{Decoded, Waiting};
 use crate::error::Error;
-use crate::field::Field;
-use crate::lines::Lines;
-use crate::section::Section;
-use crate::stream::Feedback;
-use crate::stream::{Instruction, Name};
-use crate::tables::{Dynamic, Table};
+use crate::qpack::blocked::{Decoded, Waiting};
+use crate::qpack::field::Field;
+use crate::qpack::lines::Lines;
+use crate::qpack::section::Section;
+use crate::qpack::stream::Feedback;
+use crate::qpack::stream::{Instruction, Name};
+use crate::qpack::tables::{Dynamic, Table};
 use wire::{Huffman, Reader};
 
 #[derive(Debug, Clone)]
