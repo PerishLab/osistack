@@ -120,3 +120,47 @@ fn blocked() {
         assert_eq!(world.decoder.waiting(), 0);
     }
 }
+
+fn fresh() -> Decoder {
+    let mut decoder = Decoder::new(160).blocked(4);
+    decoder.apply(&capacity(160)).unwrap();
+    decoder
+}
+
+fn fed(chunks: &[&[u8]]) -> Decoder {
+    let mut decoder = fresh();
+    let mut buffer = Vec::new();
+    for chunk in chunks {
+        buffer.extend_from_slice(chunk);
+        let used = decoder.apply(&buffer).unwrap();
+        buffer.drain(..used);
+    }
+    assert!(buffer.is_empty());
+    decoder
+}
+
+#[test]
+fn segments() {
+    for seed in 1..=6u64 {
+        let mut world = World::new(seed, seed % 2 == 0);
+        let stream: Vec<u8> = (0..8).flat_map(|_| world.grow()).collect();
+        let fields = world.fields();
+        let base = world.dice.roll(world.mirror.inserted() + 1);
+        let bytes = world
+            .encoder
+            .reference(&world.mirror, base, &fields)
+            .unwrap();
+        let mut whole = fed(&[&stream]);
+        let want = whole.section(4, &bytes).unwrap().unwrap();
+        assert_eq!(want.fields, fields);
+        for cut in 0..=stream.len() {
+            let mut split = fed(&[&stream[..cut], &stream[cut..]]);
+            assert_eq!(split.table().entries(), whole.table().entries());
+            assert_eq!(split.section(4, &bytes).unwrap().unwrap(), want);
+        }
+        let singles: Vec<&[u8]> = stream.chunks(1).collect();
+        let mut single = fed(&singles);
+        assert_eq!(single.table().entries(), whole.table().entries());
+        assert_eq!(single.section(4, &bytes).unwrap().unwrap(), want);
+    }
+}
