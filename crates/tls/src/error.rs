@@ -1,6 +1,7 @@
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Error {
     Wire(wire::Error),
+    Crypto(crypto::Error),
     Kind,
     Length,
     Version,
@@ -16,6 +17,12 @@ pub enum Error {
 impl From<wire::Error> for Error {
     fn from(error: wire::Error) -> Self {
         Error::Wire(error)
+    }
+}
+
+impl From<crypto::Error> for Error {
+    fn from(error: crypto::Error) -> Self {
+        Error::Crypto(error)
     }
 }
 
