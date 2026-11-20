@@ -48,6 +48,7 @@ fn supported() {
             (Area::Tls, "key-schedule"),
             (Area::Tls, "record-protection"),
             (Area::Http2, "hpack"),
+            (Area::Quic, "retry-integrity"),
             (Area::Quic, "version-negotiation"),
             (Area::Quic, "stream-flow-control"),
             (Area::Quic, "connection-flow-control"),
@@ -157,7 +158,7 @@ fn unique() {
             + profile.count(State::Unverified),
         profile.capabilities.len()
     );
-    assert_eq!(profile.count(State::Supported), 36);
+    assert_eq!(profile.count(State::Supported), 37);
     assert_eq!(profile.count(State::Excluded), 32);
     assert_eq!(profile.count(State::Unverified), 34);
 }
