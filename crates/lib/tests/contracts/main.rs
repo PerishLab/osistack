@@ -1,4 +1,3 @@
-mod alt;
 mod behaviour;
 #[path = "../common/mod.rs"]
 #[allow(dead_code)]
@@ -9,6 +8,7 @@ mod http3;
 mod quic;
 mod reno;
 mod rules;
+mod seam;
 mod tls;
 
 use osistack::{Area, Availability, Operation, Profile, Refusal, State, dispatch, help};
@@ -60,6 +60,7 @@ fn supported() {
             (Area::Http3, "blocked-streams"),
             (Area::Http3, "goaway"),
             (Area::Http3, "alt-svc-discovery"),
+            (Area::Crypto, "seam"),
         ]
     );
 }
@@ -67,16 +68,13 @@ fn supported() {
 #[test]
 fn protocols() {
     let profile = Profile::current();
-    for area in [Area::Crypto, Area::Cli] {
-        assert!(
-            profile
-                .capabilities
-                .iter()
-                .filter(|c| c.area == area)
-                .all(|c| c.state != State::Supported),
-            "{area:?}"
-        );
-    }
+    assert!(
+        profile
+            .capabilities
+            .iter()
+            .filter(|c| c.area == Area::Cli)
+            .all(|c| c.state != State::Supported)
+    );
 }
 
 #[test]
@@ -156,9 +154,9 @@ fn unique() {
             + profile.count(State::Unverified),
         profile.capabilities.len()
     );
-    assert_eq!(profile.count(State::Supported), 32);
+    assert_eq!(profile.count(State::Supported), 33);
     assert_eq!(profile.count(State::Excluded), 32);
-    assert_eq!(profile.count(State::Unverified), 35);
+    assert_eq!(profile.count(State::Unverified), 34);
 }
 
 #[test]
@@ -192,9 +190,10 @@ fn behaved() {
     let tables = [
         (Area::Http1, behaviour::table()),
         (Area::Http2, http2::table()),
-        (Area::Http3, [http3::table(), alt::table()].concat()),
+        (Area::Http3, http3::table()),
         (Area::Quic, quic::table()),
         (Area::Tls, tls::table()),
+        (Area::Crypto, seam::table()),
     ];
     for (area, rows) in tables {
         let mut declared: Vec<&str> = profile

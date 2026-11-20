@@ -1,3 +1,5 @@
+mod alt;
+
 use crate::behaviour::Check;
 use h3::{
     Code, Control, Decoder, Encoder, Error, Event, Fault, Feedback, Field, Frame, Going, Misuse,
@@ -5,7 +7,7 @@ use h3::{
 };
 
 pub fn table() -> Vec<(&'static str, Check)> {
-    vec![
+    let mut rows = vec![
         ("control-stream", control as Check),
         ("settings", values as Check),
         ("headers", headers as Check),
@@ -13,7 +15,9 @@ pub fn table() -> Vec<(&'static str, Check)> {
         ("goaway", goaway as Check),
         ("qpack", qpack as Check),
         ("blocked-streams", blocked as Check),
-    ]
+    ];
+    rows.extend(alt::table());
+    rows
 }
 
 const LIMIT: usize = 1 << 16;
