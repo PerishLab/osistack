@@ -51,6 +51,7 @@ fn supported() {
             (Area::Quic, "stream-flow-control"),
             (Area::Quic, "connection-flow-control"),
             (Area::Quic, "connection-id"),
+            (Area::Quic, "packet-protection"),
             (Area::Quic, "path-validation"),
             (Area::Quic, "newreno"),
             (Area::Http3, "control-stream"),
@@ -155,7 +156,7 @@ fn unique() {
             + profile.count(State::Unverified),
         profile.capabilities.len()
     );
-    assert_eq!(profile.count(State::Supported), 34);
+    assert_eq!(profile.count(State::Supported), 35);
     assert_eq!(profile.count(State::Excluded), 32);
     assert_eq!(profile.count(State::Unverified), 34);
 }

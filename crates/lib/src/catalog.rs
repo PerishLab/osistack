@@ -72,6 +72,7 @@ pub fn table() -> Vec<Capability> {
         Capability::new(Area::Quic, "stream-flow-control", State::Supported),
         Capability::new(Area::Quic, "connection-flow-control", State::Supported),
         Capability::new(Area::Quic, "connection-id", State::Supported),
+        Capability::new(Area::Quic, "packet-protection", State::Supported),
         Capability::new(Area::Quic, "path-validation", State::Supported),
         Capability::new(Area::Quic, "key-update", State::Unverified),
         Capability::new(Area::Quic, "newreno", State::Supported),

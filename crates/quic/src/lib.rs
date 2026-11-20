@@ -15,7 +15,10 @@ pub use flow::{
     Allowance, Choked, Credit, Inbound, Lanes, Phase, Piece, Receiving, Role, Sending, Stage,
 };
 pub use frame::{Ack, Direction, Ecn, Frame, Stream};
-pub use packet::{Client, Header, Kind, Long, Negotiation, Number, Retry, Short, Verdict, answer};
+pub use packet::{
+    Client, Header, Initial, Keys, Kind, Long, Negotiation, Number, Opened, Retry, Short, Verdict,
+    answer,
+};
 pub use params::{Address, Param, Params, Side};
 pub use recovery::{
     Amplify, Arrival, Echo, Fired, GRANULARITY, INITIAL, Idle, Life, MINIMUM, Mark, Marking, Mode,

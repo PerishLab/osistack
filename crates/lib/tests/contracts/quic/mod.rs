@@ -1,3 +1,5 @@
+mod protect;
+
 use crate::behaviour::Check;
 use crate::{flow, reno};
 use quic::{
@@ -11,6 +13,7 @@ pub fn table() -> Vec<(&'static str, Check)> {
         ("version-negotiation", version as Check),
         ("connection-id", ident as Check),
     ];
+    rows.extend(protect::table());
     rows.extend(flow::table());
     rows.extend(reno::table());
     rows
