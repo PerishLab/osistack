@@ -77,6 +77,6 @@ checksum = "9a5b96bbbee65322b5ae3b3836765e9c81f03ed864af1254669c78544cc07004"
 
 [[package]]
 name = "radicula-socket"
-version = "0.18.0"
+version = "0.19.0"
 source = "sparse+https://cargo.perish.uk/"
-checksum = "25a90ae9f9af5d585da0887215d96906faccd4cb256a37aa9241dc697c10e6f7"
+checksum = "2dfd5272ecb77dbb878b037d41c960530b6c1da61a95661588b5f91f3b3362bd"
