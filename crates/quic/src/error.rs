@@ -15,6 +15,7 @@ pub enum Error {
     Value,
     Empty,
     Duplicate,
+    Limit,
 }
 
 impl From<crypto::Error> for Error {

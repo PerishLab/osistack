@@ -1,3 +1,4 @@
+mod integrity;
 mod protect;
 
 use crate::behaviour::Check;
@@ -14,6 +15,7 @@ pub fn table() -> Vec<(&'static str, Check)> {
         ("connection-id", ident as Check),
     ];
     rows.extend(protect::table());
+    rows.extend(integrity::table());
     rows.extend(flow::table());
     rows.extend(reno::table());
     rows

@@ -16,8 +16,8 @@ pub use flow::{
 };
 pub use frame::{Ack, Direction, Ecn, Frame, Stream};
 pub use packet::{
-    Client, Header, Initial, Keys, Kind, Long, Negotiation, Number, Opened, Retry, Short, Verdict,
-    answer,
+    Client, Cycle, Header, Initial, Keys, Kind, Long, Negotiation, Number, Opened, Quota, Retry,
+    Short, Verdict, answer,
 };
 pub use params::{Address, Param, Params, Side};
 pub use recovery::{

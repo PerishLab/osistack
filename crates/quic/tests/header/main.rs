@@ -1,3 +1,4 @@
+mod integrity;
 mod protect;
 mod refuse;
 mod reject;

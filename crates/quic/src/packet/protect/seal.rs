@@ -35,6 +35,11 @@ impl Keys {
         Ok(Mask::new(self.aead, &self.hp)?.mask(&sample))
     }
 
+    pub(super) fn phase(&self, packet: &[u8], offset: usize) -> Result<bool, Error> {
+        let mask = self.mask(packet, offset)?;
+        Ok(packet[0] & 0x04 != mask[0] & 0x04)
+    }
+
     pub fn protect(&self, number: u64, header: &[u8], payload: &[u8]) -> Result<Vec<u8>, Error> {
         let first = *header.first().ok_or(Error::Length)?;
         let length = usize::from(first & 3) + 1;
