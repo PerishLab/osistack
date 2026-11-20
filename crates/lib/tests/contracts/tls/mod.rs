@@ -1,3 +1,4 @@
+mod chain;
 mod protect;
 mod schedule;
 
@@ -20,6 +21,7 @@ pub fn table() -> Vec<(&'static str, Check)> {
     ];
     rows.extend(schedule::table());
     rows.extend(protect::table());
+    rows.extend(chain::table());
     rows
 }
 

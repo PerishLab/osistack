@@ -1,6 +1,7 @@
 mod cert;
 mod chain;
 mod host;
+mod issued;
 mod links;
 mod pem;
 mod roots;

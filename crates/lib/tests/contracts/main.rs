@@ -43,6 +43,7 @@ fn supported() {
             (Area::Http1, "http10-response"),
             (Area::Http1, "smuggling-defense"),
             (Area::Http1, "status-not-error"),
+            (Area::Tls, "chain-validation"),
             (Area::Tls, "hostname-validation"),
             (Area::Tls, "explicit-pem-roots"),
             (Area::Tls, "key-schedule"),
@@ -126,7 +127,6 @@ fn pending() {
         (Area::Tls, "x25519"),
         (Area::Tls, "sni"),
         (Area::Tls, "alpn"),
-        (Area::Tls, "chain-validation"),
         (Area::Http2, "settings"),
         (Area::Http2, "headers"),
         (Area::Http2, "data"),
@@ -158,9 +158,9 @@ fn unique() {
             + profile.count(State::Unverified),
         profile.capabilities.len()
     );
-    assert_eq!(profile.count(State::Supported), 37);
+    assert_eq!(profile.count(State::Supported), 38);
     assert_eq!(profile.count(State::Excluded), 32);
-    assert_eq!(profile.count(State::Unverified), 34);
+    assert_eq!(profile.count(State::Unverified), 33);
 }
 
 #[test]
