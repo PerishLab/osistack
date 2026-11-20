@@ -13,5 +13,5 @@ pub use error::Error;
 pub use extension::{Extension, Identity, Place, Share, Typed};
 pub use hello::{Offer, Reply};
 pub use message::{Kind, Message};
-pub use record::{Content, Record};
+pub use record::{Content, Layer, Opened, Record};
 pub use schedule::{Keys, Master, Schedule, Traffic};

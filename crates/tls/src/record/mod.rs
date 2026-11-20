@@ -1,3 +1,5 @@
+mod protect;
+
 use crate::error::Error;
 use crate::field;
 use wire::{Reader, Writer};
@@ -13,7 +15,7 @@ pub enum Content {
 }
 
 impl Content {
-    fn code(self) -> u8 {
+    pub(super) fn code(self) -> u8 {
         match self {
             Content::Change => 20,
             Content::Alert => 21,
@@ -22,7 +24,7 @@ impl Content {
         }
     }
 
-    fn of(code: u8) -> Result<Self, Error> {
+    pub(super) fn of(code: u8) -> Result<Self, Error> {
         match code {
             20 => Ok(Content::Change),
             21 => Ok(Content::Alert),
@@ -85,3 +87,4 @@ impl Record {
         Ok(writer.finish())
     }
 }
+pub use protect::{Layer, Opened};

@@ -1,3 +1,4 @@
+mod protect;
 mod schedule;
 
 use crate::behaviour::Check;
@@ -18,6 +19,7 @@ pub fn table() -> Vec<(&'static str, Check)> {
         ("hostname-validation", hostname as Check),
     ];
     rows.extend(schedule::table());
+    rows.extend(protect::table());
     rows
 }
 
