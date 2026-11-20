@@ -273,8 +273,7 @@ impl Spec {
     pub fn der(&self) -> Vec<u8> {
         let (from, until) = self.window;
         let validity = seq(&[&tlv(0x17, from.as_bytes()), &tlv(0x17, until.as_bytes())]);
-        let mut point = vec![0x04];
-        point.extend((1..=64u8).map(|byte| byte.wrapping_add(self.seed)));
+        let point = crate::issued::share(&self.subject);
         let spki = seq(&[&alg(EC, Some(&oid(P256))), &bits(0, &point)]);
         let version = tlv(0xa0, &tlv(0x02, &[2]));
         let serial = tlv(0x02, &[1, self.seed | 1]);
@@ -288,7 +287,11 @@ impl Spec {
             &spki,
             &self.extensions(),
         ]);
-        seq(&[&tbs, &alg(ECDSA256, None), &bits(0, &[1, 2, 3, self.stamp])])
+        let mut mark = crate::issued::signed(&self.issuer, &tbs);
+        if self.stamp != 4 {
+            *mark.last_mut().unwrap() ^= self.stamp;
+        }
+        seq(&[&tbs, &alg(ECDSA256, None), &bits(0, &mark)])
     }
 
     pub fn cert(&self) -> Certificate {

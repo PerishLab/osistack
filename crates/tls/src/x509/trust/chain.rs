@@ -1,5 +1,6 @@
 use super::Roots;
-use crate::x509::{Certificate, Time};
+use crate::x509::{Certificate, Curve, Public, Scheme, Time};
+use crypto::{Hash, Scheme as Method, Verifier};
 
 const SERVER: &[u8] = &[0x2b, 0x06, 0x01, 0x05, 0x05, 0x07, 0x03, 0x01];
 const ANY: &[u8] = &[0x55, 0x1d, 0x25, 0x00];
@@ -22,6 +23,8 @@ pub enum Defect {
     Purpose,
     Critical,
     Long,
+    Scheme,
+    Forged,
 }
 
 #[derive(Debug, Clone)]
@@ -159,6 +162,10 @@ impl<'a> Search<'a> {
                 self.note(defect);
                 continue;
             }
+            if let Err(defect) = prove(top, cert) {
+                self.note(defect);
+                continue;
+            }
             self.path.push(cert);
             if self.walk() {
                 return true;
@@ -167,4 +174,35 @@ impl<'a> Search<'a> {
         }
         false
     }
+}
+
+fn prove(cert: &Certificate, issuer: &Certificate) -> Result<(), Defect> {
+    let (verifier, method) = match (cert.outer.scheme(), &issuer.key) {
+        (
+            Scheme::Ecdsa256,
+            Public::Ec {
+                curve: Curve::P256,
+                point,
+            },
+        ) => (
+            Verifier::ecdsa(point).map_err(|_| Defect::Scheme)?,
+            Method::Ecdsa,
+        ),
+        (Scheme::Rsa256, Public::Rsa { modulus, exponent }) => (
+            Verifier::rsa(modulus, exponent).map_err(|_| Defect::Scheme)?,
+            Method::Pkcs1(Hash::Sha256),
+        ),
+        (Scheme::Rsa384, Public::Rsa { modulus, exponent }) => (
+            Verifier::rsa(modulus, exponent).map_err(|_| Defect::Scheme)?,
+            Method::Pkcs1(Hash::Sha384),
+        ),
+        (Scheme::Rsa512, Public::Rsa { modulus, exponent }) => (
+            Verifier::rsa(modulus, exponent).map_err(|_| Defect::Scheme)?,
+            Method::Pkcs1(Hash::Sha512),
+        ),
+        _ => return Err(Defect::Scheme),
+    };
+    verifier
+        .check(method, &cert.tbs, &cert.signature)
+        .map_err(|_| Defect::Forged)
 }

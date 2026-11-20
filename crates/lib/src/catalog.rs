@@ -40,7 +40,7 @@ pub fn table() -> Vec<Capability> {
         Capability::new(Area::Tls, "rsa-verify", State::Unverified),
         Capability::new(Area::Tls, "sni", State::Unverified),
         Capability::new(Area::Tls, "alpn", State::Unverified),
-        Capability::new(Area::Tls, "chain-validation", State::Unverified),
+        Capability::new(Area::Tls, "chain-validation", State::Supported),
         Capability::new(Area::Tls, "hostname-validation", State::Supported),
         Capability::new(Area::Tls, "explicit-pem-roots", State::Supported),
         Capability::new(Area::Tls, "key-schedule", State::Supported),

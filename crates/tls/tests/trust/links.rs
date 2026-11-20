@@ -223,5 +223,5 @@ fn forged() {
     let held = roots(std::slice::from_ref(&lone));
     let fake = lone.clone().forged(9);
     assert_eq!(build(&lone, &[], &held).unwrap().certs().len(), 1);
-    assert_eq!(build(&fake, &[], &held).unwrap().certs().len(), 2);
+    assert_eq!(build(&fake, &[], &held).unwrap_err(), Defect::Forged);
 }
