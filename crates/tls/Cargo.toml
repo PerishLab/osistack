@@ -10,4 +10,5 @@ publish.workspace = true
 name = "tls"
 
 [dependencies]
+crypto.workspace = true
 wire.workspace = true

@@ -1,7 +1,7 @@
+use super::offer::{SESSION, VERSION};
 use crate::error::Error;
 use crate::extension::{self, Extension};
 use crate::field;
-use crate::offer::{SESSION, VERSION};
 use wire::{Reader, Writer};
 
 const RETRY: [u8; 32] = [

@@ -1,3 +1,5 @@
+mod schedule;
+
 use crate::behaviour::Check;
 use tls::x509::trust::{Host, Refusal, Roots, verify};
 use tls::x509::{Certificate, Oid};
@@ -11,10 +13,12 @@ const COMMON: &[u8] = &[0x55, 0x04, 0x03];
 const TABLE: &[u8; 64] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
 
 pub fn table() -> Vec<(&'static str, Check)> {
-    vec![
+    let mut rows = vec![
         ("explicit-pem-roots", roots as Check),
         ("hostname-validation", hostname as Check),
-    ]
+    ];
+    rows.extend(schedule::table());
+    rows
 }
 
 fn tlv(tag: u8, content: &[u8]) -> Vec<u8> {

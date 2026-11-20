@@ -60,6 +60,7 @@ dependencies = [
 name = "osistack-tls"
 version = "0.0.0"
 dependencies = [
+ "osistack-crypto",
  "osistack-wire",
 ]
 
