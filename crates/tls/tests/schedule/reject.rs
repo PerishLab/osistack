@@ -59,10 +59,10 @@ fn tampered() {
 #[test]
 fn wide() {
     let shared = hex(SHARED);
-    for hash in [Hash::Sha384, Hash::Sha512] {
-        let made = tls::Schedule::new(hash, &shared);
-        assert_eq!(made.err(), Some(UNSUPPORTED), "{hash:?}");
-    }
+    let made = tls::Schedule::new(Hash::Sha384, &shared);
+    assert!(made.is_ok());
+    let failed = tls::Schedule::new(Hash::Sha512, &shared);
+    assert_eq!(failed.err(), Some(UNSUPPORTED));
 }
 
 #[test]

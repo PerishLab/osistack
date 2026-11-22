@@ -68,13 +68,59 @@ fn tampered() {
     assert_eq!(verify(b"Jeff", &data, &tag), Err(Error::Auth));
 }
 
+fn wide() -> Vec<(String, String, &'static str)> {
+    let text =
+        |bytes: &[u8]| -> String { bytes.iter().map(|byte| format!("{byte:02x}")).collect() };
+    vec![
+        (
+            "0b".repeat(20),
+            text(b"Hi There"),
+            "afd03944d84895626b0825f4ab46907f15f9dadbe4101ec682aa034c7cebc59cfaea9ea9076ede7f4af152e8b2fa9cb6",
+        ),
+        (
+            text(b"Jefe"),
+            text(b"what do ya want for nothing?"),
+            "af45d2e376484031617f78d2b58a6b1b9c7ef464f5a01b47e42ec3736322445e8e2240ca5e69e2c78b3239ecfab21649",
+        ),
+        (
+            "aa".repeat(20),
+            "dd".repeat(50),
+            "88062608d3e6ad8a0aa2ace014c8a86f0aa635d947ac9febe83ef4e55966144b2a5ab39dc13814b94e3ab6e101a34f27",
+        ),
+        (
+            text(&(1..=25).collect::<Vec<u8>>()),
+            "cd".repeat(50),
+            "3e8a69b7783c25851933ab6290af6ca77a9981480850009cc5577c6e1f573b4e6801dd23c4a7d679ccf8a386c674cffb",
+        ),
+        (
+            "aa".repeat(131),
+            text(b"Test Using Larger Than Block-Size Key - Hash Key First"),
+            "4ece084485813e9088d2c63a041bc5b44f9ef1012a2b588f3cd11f05033ac4c60c2ef6ab4030fe8296248df163f44952",
+        ),
+    ]
+}
+
 #[test]
-fn others() {
-    for hash in [Hash::Sha384, Hash::Sha512] {
-        assert_eq!(hmac::sign(hash, b"key", b"data"), Err(Error::Unsupported));
+fn sha384() {
+    for (at, (key, data, tag)) in wide().into_iter().enumerate() {
+        let tag = hex(tag);
+        let signed = hmac::sign(Hash::Sha384, &hex(&key), &hex(&data)).unwrap();
+        assert_eq!(signed, tag, "case {at}");
         assert_eq!(
-            hmac::verify(hash, b"key", b"data", &[0; 48]),
-            Err(Error::Unsupported)
+            hmac::verify(Hash::Sha384, &hex(&key), &hex(&data), &tag),
+            Ok(())
         );
     }
+}
+
+#[test]
+fn others() {
+    assert_eq!(
+        hmac::sign(Hash::Sha512, b"key", b"data"),
+        Err(Error::Unsupported)
+    );
+    assert_eq!(
+        hmac::verify(Hash::Sha512, b"key", b"data", &[0; 64]),
+        Err(Error::Unsupported)
+    );
 }

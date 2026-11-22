@@ -11,16 +11,16 @@ fn start(group: Group, own: u8, peer: u8) -> Vec<u8> {
     group.agree(&[own; 32], &theirs).unwrap()
 }
 
-fn hellos() -> Vec<u8> {
-    Hash::Sha256.digest(b"client hello then server hello")
+fn hellos(hash: Hash) -> Vec<u8> {
+    hash.digest(b"client hello then server hello")
 }
 
-fn layer(shared: &[u8], mine: bool, aead: Aead) -> Layer {
-    let schedule = Schedule::new(Hash::Sha256, shared).unwrap();
+fn layer(hash: Hash, shared: &[u8], mine: bool, aead: Aead) -> Layer {
+    let schedule = Schedule::new(hash, shared).unwrap();
     let traffic = if mine {
-        schedule.client(&hellos()).unwrap()
+        schedule.client(&hellos(hash)).unwrap()
     } else {
-        schedule.server(&hellos()).unwrap()
+        schedule.server(&hellos(hash)).unwrap()
     };
     Layer::new(aead, &traffic.keys(aead).unwrap()).unwrap()
 }
@@ -31,9 +31,9 @@ struct Case {
     pad: usize,
 }
 
-fn trip(aead: Aead, shared: &[u8], case: Case) {
-    let mut sender = layer(shared, true, aead);
-    let mut receiver = layer(shared, true, aead);
+fn trip(hash: Hash, aead: Aead, shared: &[u8], case: Case) {
+    let mut sender = layer(hash, shared, true, aead);
+    let mut receiver = layer(hash, shared, true, aead);
     let record = sender.protect(case.content, case.data, case.pad).unwrap();
     assert_eq!(record.content, Content::Application);
     assert_eq!(
@@ -55,8 +55,14 @@ fn records() {
     let shared = start(Group::X25519, 1, 2);
     let other = start(Group::X25519, 2, 1);
     assert_eq!(shared, other);
-    for aead in [Aead::Aes128, Aead::Aes256, Aead::Chacha] {
+    for (hash, aead) in [
+        (Hash::Sha256, Aead::Aes128),
+        (Hash::Sha256, Aead::Aes256),
+        (Hash::Sha256, Aead::Chacha),
+        (Hash::Sha384, Aead::Aes256),
+    ] {
         trip(
+            hash,
             aead,
             &shared,
             Case {
@@ -66,6 +72,7 @@ fn records() {
             },
         );
         trip(
+            hash,
             aead,
             &shared,
             Case {
@@ -75,6 +82,7 @@ fn records() {
             },
         );
         trip(
+            hash,
             aead,
             &shared,
             Case {
@@ -83,7 +91,7 @@ fn records() {
                 pad: 0,
             },
         );
-        let mut sender = layer(&shared, true, aead);
+        let mut sender = layer(hash, &shared, true, aead);
         assert_eq!(sender.protect(Content::Handshake, b"", 0), Err(Error::Kind));
     }
 }

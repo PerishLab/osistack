@@ -34,7 +34,7 @@ fn mapped() {
     let outcomes = [
         (
             Error::Unsupported,
-            hmac::sign(Hash::Sha384, b"k", b"d").err(),
+            hmac::sign(Hash::Sha512, b"k", b"d").err(),
         ),
         (Error::Length, Aead::Aes128.cipher(&[0; 3]).err()),
         (
