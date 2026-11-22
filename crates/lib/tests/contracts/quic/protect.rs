@@ -42,10 +42,10 @@ fn handshake() {
     assert_eq!(back.payload, b"server hello");
 }
 
-fn stream(aead: Aead, seed: u8) {
-    let secret = [seed; 32];
-    let sender = Keys::derive(Hash::Sha256, aead, &secret).unwrap();
-    let receiver = Keys::derive(Hash::Sha256, aead, &secret).unwrap();
+fn stream(hash: Hash, aead: Aead, seed: u8) {
+    let secret = vec![seed; hash.size()];
+    let sender = Keys::derive(hash, aead, &secret).unwrap();
+    let receiver = Keys::derive(hash, aead, &secret).unwrap();
     let mut largest = Some(0xffff_ffefu64);
     for full in 0xffff_fff0u64..0x1_0000_0010 {
         let number = Number::new(full, largest).unwrap();
@@ -64,10 +64,10 @@ fn stream(aead: Aead, seed: u8) {
     }
 }
 
-fn rotate(aead: Aead) {
-    let secret = [7; 32];
-    let sender = Keys::derive(Hash::Sha256, aead, &secret).unwrap();
-    let receiver = Keys::derive(Hash::Sha256, aead, &secret).unwrap();
+fn rotate(hash: Hash, aead: Aead) {
+    let secret = vec![7u8; hash.size()];
+    let sender = Keys::derive(hash, aead, &secret).unwrap();
+    let receiver = Keys::derive(hash, aead, &secret).unwrap();
     let number = Number::new(5, Some(4)).unwrap();
     let short = Short {
         spin: false,
@@ -89,8 +89,12 @@ fn rotate(aead: Aead) {
 
 fn protection() {
     handshake();
-    for (aead, seed) in [(Aead::Aes128, 1), (Aead::Chacha, 2)] {
-        stream(aead, seed);
-        rotate(aead);
+    for (hash, aead, seed) in [
+        (Hash::Sha256, Aead::Aes128, 1),
+        (Hash::Sha256, Aead::Chacha, 2),
+        (Hash::Sha384, Aead::Aes256, 3),
+    ] {
+        stream(hash, aead, seed);
+        rotate(hash, aead);
     }
 }

@@ -4,3 +4,4 @@ mod refuse;
 mod reject;
 mod support;
 mod trace;
+mod wide;

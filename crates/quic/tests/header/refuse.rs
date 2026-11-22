@@ -26,14 +26,14 @@ fn derive() {
     assert!(Initial::new(&[]).is_ok());
     assert_eq!(Initial::new(&[0; 21]).err(), Some(Error::Length));
     assert!(Initial::new(&ok).is_ok());
-    for (hash, aead) in [
-        (Hash::Sha384, Aead::Aes256),
-        (Hash::Sha512, Aead::Aes128),
-        (Hash::Sha384, Aead::Chacha),
-    ] {
-        let made = Keys::derive(hash, aead, &[7; 48]);
-        assert_eq!(made.err(), Some(UNSUPPORTED), "{hash:?} {aead:?}");
+    for aead in [Aead::Aes256, Aead::Chacha] {
+        let made = Keys::derive(Hash::Sha384, aead, &[7; 48]);
+        assert!(made.is_ok(), "{aead:?}");
     }
+    assert_eq!(
+        Keys::derive(Hash::Sha512, Aead::Aes128, &[7; 64]).err(),
+        Some(UNSUPPORTED)
+    );
     let short = Keys::derive(Hash::Sha256, Aead::Aes128, &[7; 31]);
     assert!(matches!(short.err(), Some(Error::Crypto(_))));
 }

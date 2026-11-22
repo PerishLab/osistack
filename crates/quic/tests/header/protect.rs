@@ -190,3 +190,25 @@ fn phase() {
         assert_eq!(packet.len(), head.len() / 2 + 4 + 16, "{first}");
     }
 }
+
+#[test]
+fn wide() {
+    let secret = [7u8; 48];
+    let keys = Keys::derive(Hash::Sha384, Aead::Aes256, &secret).unwrap();
+    let head = hex("42000005");
+    let packet = keys.protect(5, &head, b"ping").unwrap();
+    let opened = keys.unprotect(&packet, 1, Some(4)).unwrap();
+    assert_eq!(
+        (opened.number, opened.payload.as_slice()),
+        (5, b"ping".as_slice())
+    );
+    let next = keys.update().unwrap();
+    assert!(next.unprotect(&packet, 1, Some(4)).is_err());
+    let again = next.protect(6, &hex("42000006"), b"pong").unwrap();
+    let peer = Keys::derive(Hash::Sha384, Aead::Aes256, &secret)
+        .unwrap()
+        .update()
+        .unwrap();
+    let opened = peer.unprotect(&again, 1, Some(5)).unwrap();
+    assert_eq!(opened.payload, b"pong");
+}

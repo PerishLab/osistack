@@ -192,12 +192,26 @@ fn bounds() {
 }
 
 #[test]
+fn wide() {
+    let secret = Secret::extract(Hash::Sha384, b"salt", b"ikm").unwrap();
+    let out = secret.label(b"key", b"", 32).unwrap();
+    assert_eq!(out.len(), 32);
+    let prk = Secret::new(Hash::Sha384, &[7; 48]).unwrap();
+    assert_eq!(prk.label(b"key", b"", 32).unwrap().len(), 32);
+    assert_eq!(
+        Secret::new(Hash::Sha384, &[7; 47]).err(),
+        Some(Error::Length)
+    );
+}
+
+#[test]
 fn others() {
-    for hash in [Hash::Sha384, Hash::Sha512] {
-        assert_eq!(
-            Secret::extract(hash, b"salt", b"ikm").err(),
-            Some(Error::Unsupported)
-        );
-        assert_eq!(Secret::new(hash, &[0; 64]).err(), Some(Error::Unsupported));
-    }
+    assert_eq!(
+        Secret::extract(Hash::Sha512, b"salt", b"ikm").err(),
+        Some(Error::Unsupported)
+    );
+    assert_eq!(
+        Secret::new(Hash::Sha512, &[0; 64]).err(),
+        Some(Error::Unsupported)
+    );
 }

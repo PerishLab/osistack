@@ -7,6 +7,7 @@ pub fn table() -> Vec<(&'static str, Check)> {
 }
 
 struct End {
+    hash: Hash,
     schedule: Schedule,
     sending: Traffic,
     receiving: Traffic,
@@ -40,20 +41,18 @@ fn start(group: Group, own: u8, peer: u8) -> (Vec<u8>, Vec<u8>) {
     (mine, group.agree(&[own; 32], &theirs).unwrap())
 }
 
-fn hellos() -> Vec<u8> {
-    Hash::Sha256.digest(b"client hello then server hello")
-}
-
-fn begin(shared: &[u8], mine: bool) -> End {
-    let schedule = Schedule::new(Hash::Sha256, shared).unwrap();
-    let client = schedule.client(&hellos()).unwrap();
-    let server = schedule.server(&hellos()).unwrap();
+fn begin(hash: Hash, shared: &[u8], mine: bool) -> End {
+    let schedule = Schedule::new(hash, shared).unwrap();
+    let hellos = hash.digest(b"client hello then server hello");
+    let client = schedule.client(&hellos).unwrap();
+    let server = schedule.server(&hellos).unwrap();
     let (sending, receiving) = if mine {
         (client, server)
     } else {
         (server, client)
     };
     End {
+        hash,
         schedule,
         sending,
         receiving,
@@ -61,13 +60,13 @@ fn begin(shared: &[u8], mine: bool) -> End {
 }
 
 fn finish(left: &End, right: &End) {
-    let transcript = Hash::Sha256.digest(b"through certificate verify");
+    let transcript = left.hash.digest(b"through certificate verify");
     let tag = left.sending.finished(&transcript).unwrap();
     assert_eq!(right.receiving.check(&transcript, &tag), Ok(()));
     let mut flipped = tag.clone();
     flipped[0] ^= 1;
     assert!(right.receiving.check(&transcript, &flipped).is_err());
-    let later = Hash::Sha256.digest(b"through server finished");
+    let later = left.hash.digest(b"through server finished");
     let reply = right.sending.finished(&later).unwrap();
     assert_eq!(left.receiving.check(&later, &reply), Ok(()));
 }
@@ -85,25 +84,36 @@ fn keys() {
         let (second, other) = start(group, 2, 1);
         assert_ne!(first, second);
         assert_eq!(shared, other);
-        let left = begin(&shared, true);
-        let right = begin(&other, false);
-        for aead in [Aead::Aes128, Aead::Aes256, Aead::Chacha] {
-            let ping = send(aead, &left.sending, &right.receiving, b"ping");
-            assert_eq!(ping.unwrap(), b"ping", "{group:?} {aead:?}");
-            let pong = send(aead, &right.sending, &left.receiving, b"pong");
-            assert_eq!(pong.unwrap(), b"pong", "{group:?} {aead:?}");
+        for hash in [Hash::Sha256, Hash::Sha384] {
+            let left = begin(hash, &shared, true);
+            let right = begin(hash, &other, false);
+            let aeads = if hash == Hash::Sha256 {
+                [Aead::Aes128, Aead::Aes256, Aead::Chacha].as_slice()
+            } else {
+                [Aead::Aes256].as_slice()
+            };
+            for aead in aeads {
+                let ping = send(*aead, &left.sending, &right.receiving, b"ping");
+                assert_eq!(ping.unwrap(), b"ping", "{group:?} {hash:?} {aead:?}");
+                let pong = send(*aead, &right.sending, &left.receiving, b"pong");
+                assert_eq!(pong.unwrap(), b"pong", "{group:?} {hash:?} {aead:?}");
+            }
+            finish(&left, &right);
+            rotate(&left, &right);
         }
-        finish(&left, &right);
-        rotate(&left, &right);
     }
 }
 
 fn rotate(left: &End, right: &End) {
     let (one, two) = apply(left, right);
-    let done = Hash::Sha256.digest(b"through server finished");
+    let done = left.hash.digest(b"through server finished");
     let sent = one.client(&done).unwrap();
     let got = two.client(&done).unwrap();
-    let aead = Aead::Aes128;
+    let aead = if left.hash == Hash::Sha384 {
+        Aead::Aes256
+    } else {
+        Aead::Aes128
+    };
     assert_eq!(send(aead, &sent, &got, b"early").unwrap(), b"early");
     let next = sent.update().unwrap();
     assert!(send(aead, &next, &got, b"late").unwrap().is_empty());

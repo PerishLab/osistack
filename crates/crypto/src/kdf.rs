@@ -3,8 +3,14 @@ use crate::{Error, Hash};
 const PREFIX: &[u8] = b"tls13 ";
 
 #[derive(Clone)]
+enum Inner {
+    Sha256(radicula::Hkdf),
+    Sha384(radicula::Hkdf384),
+}
+
+#[derive(Clone)]
 pub struct Secret {
-    inner: radicula::Hkdf,
+    inner: Inner,
 }
 
 fn info(label: &[u8], context: &[u8], length: usize) -> Result<Vec<u8>, Error> {
@@ -24,24 +30,33 @@ impl Secret {
     pub fn extract(hash: Hash, salt: &[u8], ikm: &[u8]) -> Result<Self, Error> {
         match hash {
             Hash::Sha256 => Ok(Secret {
-                inner: radicula::Hkdf::extract(salt, ikm),
+                inner: Inner::Sha256(radicula::Hkdf::extract(salt, ikm)),
             }),
-            _ => Err(Error::Unsupported),
+            Hash::Sha384 => Ok(Secret {
+                inner: Inner::Sha384(radicula::Hkdf384::extract(salt, ikm)),
+            }),
+            Hash::Sha512 => Err(Error::Unsupported),
         }
     }
 
     pub fn new(hash: Hash, prk: &[u8]) -> Result<Self, Error> {
         match hash {
             Hash::Sha256 => Ok(Secret {
-                inner: radicula::Hkdf::new(prk)?,
+                inner: Inner::Sha256(radicula::Hkdf::new(prk)?),
             }),
-            _ => Err(Error::Unsupported),
+            Hash::Sha384 => Ok(Secret {
+                inner: Inner::Sha384(radicula::Hkdf384::new(prk)?),
+            }),
+            Hash::Sha512 => Err(Error::Unsupported),
         }
     }
 
     pub fn expand(&self, info: &[u8], length: usize) -> Result<Vec<u8>, Error> {
         let mut out = vec![0u8; length];
-        self.inner.expand(info, &mut out)?;
+        match &self.inner {
+            Inner::Sha256(inner) => inner.expand(info, &mut out)?,
+            Inner::Sha384(inner) => inner.expand(info, &mut out)?,
+        }
         Ok(out)
     }
 
