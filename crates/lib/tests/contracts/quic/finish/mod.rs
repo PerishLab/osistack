@@ -4,6 +4,7 @@ mod flow;
 mod path;
 mod remote;
 mod reset;
+mod stop;
 mod streams;
 
 pub(crate) use remote::session;
