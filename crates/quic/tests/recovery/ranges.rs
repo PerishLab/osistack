@@ -160,3 +160,25 @@ fn monotonic() {
     recovery.acked(200, Space::Data, &ack(4, 0)).unwrap();
     assert_eq!(recovery.loss(Space::Data), Some(1_000));
 }
+
+#[test]
+fn rewind() {
+    let mut recovery = client();
+    burst(&mut recovery, Space::Data, 6, 1_000);
+    let out = recovery.acked(100, Space::Data, &ack(5, 5)).unwrap();
+    assert_eq!(numbers(&out.acked), [0, 1, 2, 3, 4, 5]);
+    let later = recovery.acked(50, Space::Data, &ack(5, 5)).unwrap();
+    assert!(later.acked.is_empty());
+}
+
+#[test]
+fn refused() {
+    let mut recovery = client();
+    burst(&mut recovery, Space::Data, 4, 0);
+    let mut bad = ack(3, 0);
+    bad.first = 4;
+    assert_eq!(recovery.acked(500, Space::Data, &bad), Err(Error::Value));
+    bad = ack(3, 0);
+    bad.ranges.push((8, 0));
+    assert_eq!(recovery.acked(500, Space::Data, &bad), Err(Error::Value));
+}
