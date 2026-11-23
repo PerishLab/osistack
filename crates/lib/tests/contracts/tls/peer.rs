@@ -1,5 +1,7 @@
 use super::sign::{share, signed};
 use crypto::{Aead, Group, Hash, Running};
+use std::io::{Read, Write};
+use std::net::TcpStream;
 use tls::x509::Time;
 use tls::x509::trust::Roots;
 use tls::{
@@ -266,4 +268,23 @@ pub fn frame(content: Content, fragment: Vec<u8>) -> Record {
         version: 0x0303,
         fragment,
     }
+}
+
+#[allow(dead_code)]
+pub fn pull(stream: &mut TcpStream, buffer: &mut Vec<u8>) -> Record {
+    let mut chunk = [0u8; 4096];
+    loop {
+        if let Some((record, used)) = Record::parse(buffer).unwrap() {
+            buffer.drain(..used);
+            return record;
+        }
+        let read = stream.read(&mut chunk).unwrap();
+        assert!(read > 0);
+        buffer.extend_from_slice(&chunk[..read]);
+    }
+}
+
+#[allow(dead_code)]
+pub fn push(stream: &mut TcpStream, record: &Record) {
+    stream.write_all(&record.write().unwrap()).unwrap();
 }
