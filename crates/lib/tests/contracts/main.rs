@@ -49,6 +49,7 @@ fn supported() {
             (Area::Http1, "status-not-error"),
             (Area::Http1, "loopback-test-server"),
             (Area::Http1, "proxy"),
+            (Area::Tls, "client"),
             (Area::Tls, "x25519"),
             (Area::Tls, "p256"),
             (Area::Tls, "aes-gcm"),
@@ -164,9 +165,9 @@ fn unique() {
             + profile.count(State::Unverified),
         profile.capabilities.len()
     );
-    assert_eq!(profile.count(State::Supported), 68);
+    assert_eq!(profile.count(State::Supported), 69);
     assert_eq!(profile.count(State::Excluded), 32);
-    assert_eq!(profile.count(State::Unverified), 3);
+    assert_eq!(profile.count(State::Unverified), 2);
 }
 
 #[test]

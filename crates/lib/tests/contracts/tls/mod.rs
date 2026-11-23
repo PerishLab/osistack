@@ -22,6 +22,7 @@ const TABLE: &[u8; 64] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0
 
 pub fn table() -> Vec<(&'static str, Check)> {
     let mut rows = vec![
+        ("client", piped::client as Check),
         ("explicit-pem-roots", roots as Check),
         ("hostname-validation", hostname as Check),
     ];
