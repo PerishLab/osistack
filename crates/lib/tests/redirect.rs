@@ -26,8 +26,8 @@ fn posted() {
     let src = Server::replying(text(&[&head])).unwrap();
     let response = client().fetch(post(), &src.uri, b"hi").unwrap();
     assert_eq!(response.head.status.get(), 200);
-    let seen = String::from_utf8(dest.captured()).unwrap();
-    let _ = src.captured();
+    let seen = String::from_utf8(dest.captured().unwrap()).unwrap();
+    let _ = src.captured().unwrap();
     assert!(seen.starts_with("POST /keep HTTP/1.1\r\n"), "{seen}");
     assert!(seen.ends_with("\r\n\r\nhi"), "{seen}");
 }
@@ -40,8 +40,8 @@ fn rewritten() {
     let src = Server::replying(text(&[&head])).unwrap();
     let response = client().fetch(post(), &src.uri, b"hi").unwrap();
     assert_eq!(response.head.status.get(), 200);
-    let seen = String::from_utf8(dest.captured()).unwrap();
-    let _ = src.captured();
+    let seen = String::from_utf8(dest.captured().unwrap()).unwrap();
+    let _ = src.captured().unwrap();
     assert!(seen.starts_with("GET /next HTTP/1.1\r\n"), "{seen}");
     assert!(!seen.contains("content-length"), "{seen}");
 }
@@ -51,7 +51,7 @@ fn https() {
     let head = "HTTP/1.1 302 Found\r\nLocation: https://127.0.0.1:1/\r\nContent-Length: 0\r\n\r\n";
     let src = Server::replying(text(&[head])).unwrap();
     let outcome = client().fetch(get(), &src.uri, b"");
-    let _ = src.captured();
+    let _ = src.captured().unwrap();
     assert!(matches!(outcome, Err(Error::Socket(_))), "{outcome:?}");
 }
 
@@ -59,7 +59,7 @@ fn https() {
 fn missing() {
     let src = Server::replying(text(&["HTTP/1.1 302 Found\r\nContent-Length: 0\r\n\r\n"])).unwrap();
     let response = client().fetch(get(), &src.uri, b"").unwrap();
-    let _ = src.captured();
+    let _ = src.captured().unwrap();
     assert_eq!(response.head.status.get(), 302);
 }
 

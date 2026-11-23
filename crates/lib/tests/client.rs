@@ -30,7 +30,7 @@ fn wire() {
     let server = Server::replying(text(&["HTTP/1.1 204 No Content\r\n\r\n"])).unwrap();
     let port = server.port;
     client().fetch(get(), &server.uri, b"").unwrap();
-    let seen = String::from_utf8(server.captured()).unwrap();
+    let seen = String::from_utf8(server.captured().unwrap()).unwrap();
     let expected =
         format!("GET /path?q=1 HTTP/1.1\r\nhost: 127.0.0.1:{port}\r\nconnection: close\r\n\r\n");
     assert_eq!(seen, expected);
@@ -90,7 +90,7 @@ fn post() {
     let server = Server::replying(text(&["HTTP/1.1 200 OK\r\nContent-Length: 0\r\n\r\n"])).unwrap();
     let method = Method::new("POST").unwrap();
     client().fetch(method, &server.uri, b"payload").unwrap();
-    let seen = String::from_utf8(server.captured()).unwrap();
+    let seen = String::from_utf8(server.captured().unwrap()).unwrap();
     assert!(seen.starts_with("POST /path?q=1 HTTP/1.1\r\n"));
     assert!(seen.contains("content-length: 7\r\n"));
     assert!(seen.ends_with("\r\n\r\npayload"));
@@ -101,7 +101,7 @@ fn empty() {
     let server = Server::replying(text(&["HTTP/1.1 200 OK\r\nContent-Length: 0\r\n\r\n"])).unwrap();
     let method = Method::new("POST").unwrap();
     client().fetch(method, &server.uri, b"").unwrap();
-    let seen = String::from_utf8(server.captured()).unwrap();
+    let seen = String::from_utf8(server.captured().unwrap()).unwrap();
     assert!(seen.contains("content-length: 0\r\n"));
 }
 
@@ -179,6 +179,6 @@ fn cycling() {
         let response = client().fetch(get(), &server.uri, b"").unwrap();
         assert_eq!(response.head.status.get(), 200);
         assert_eq!(response.body, b"body");
-        let _ = server.captured();
+        let _ = server.captured().unwrap();
     }
 }
