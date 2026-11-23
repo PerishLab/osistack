@@ -17,13 +17,26 @@ impl Hello {
         share: Share,
         random: [u8; 32],
     ) -> Result<Self, Error> {
+        Self::begin(host, protocols, &[share], random)
+    }
+
+    pub fn begin(
+        host: &[u8],
+        protocols: &[Vec<u8>],
+        shares: &[Share],
+        random: [u8; 32],
+    ) -> Result<Self, Error> {
+        if shares.is_empty() {
+            return Err(Error::Missing);
+        }
+        let groups: Vec<u16> = shares.iter().map(|share| share.group).collect();
         let extensions = vec![
             Typed::Name(Some(host.to_vec())).write()?,
-            Typed::Groups(vec![share.group]).write()?,
+            Typed::Groups(groups).write()?,
             Typed::Algorithms(vec![0x0403, 0x0804]).write()?,
             Typed::Protocols(protocols.to_vec()).write()?,
             Typed::Versions(vec![0x0304]).write()?,
-            Typed::Shares(vec![share]).write()?,
+            Typed::Shares(shares.to_vec()).write()?,
         ];
         let offer = Offer {
             random,

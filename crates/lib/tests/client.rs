@@ -148,3 +148,21 @@ fn smoking() {
     let status = applied.response.head.status.get();
     assert!((100..600).contains(&status), "{status}");
 }
+
+#[test]
+#[ignore = "nghttpd"]
+fn peering() {
+    if !common::httpd::present() {
+        return;
+    }
+    let issued = common::outside::minted();
+    let server = common::httpd::hosted(&issued);
+    let mut client = client();
+    let text = fs::read_to_string(&issued.cert).unwrap();
+    client.roots = Roots::pem(&text).unwrap();
+    let port = server.port;
+    let uri = Uri::parse(&format!("https://localhost:{port}/index.html")).unwrap();
+    let response = client.fetch(get(), &uri, b"").unwrap();
+    assert_eq!(response.head.status.get(), 200);
+    assert_eq!(response.body, b"ok");
+}
