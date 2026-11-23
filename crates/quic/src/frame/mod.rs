@@ -1,4 +1,5 @@
 mod ack;
+mod hearing;
 mod opening;
 mod read;
 mod stream;
@@ -7,6 +8,7 @@ mod write;
 use crate::error::Error;
 
 pub use ack::{Ack, Ecn};
+pub use hearing::{Handshake, Hearing};
 pub use opening::Opening;
 pub use stream::Stream;
 

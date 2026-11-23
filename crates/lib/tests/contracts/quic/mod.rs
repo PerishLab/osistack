@@ -1,5 +1,6 @@
 mod ecn;
 mod gso;
+mod hearing;
 mod integrity;
 mod opening;
 mod protect;
