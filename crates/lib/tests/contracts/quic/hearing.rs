@@ -1,5 +1,5 @@
 use crypto::{Aead, Group, Hash};
-use quic::{Frame, Handshake, Hearing, Initial, Kind, Long, Number, Opening, Param, Params};
+use quic::{Error, Frame, Handshake, Hearing, Initial, Kind, Long, Number, Opening, Param, Params};
 use tls::{Extension, Hello, Message, Place, Reply, Share, Typed};
 
 struct Dest {
@@ -190,4 +190,99 @@ fn refused() {
     let mut hearing = Hearing::new(&[1u8; 8], 4).unwrap();
     assert!(hearing.ingest(&[0u8; 8]).is_err());
     assert!(Handshake::new(Hash::Sha256, Aead::Aes128, &[], &[8u8; 32]).is_err());
+}
+
+#[test]
+fn spaces() {
+    let original = [1u8; 8];
+    let client = [2u8; 4];
+    let server = [3u8; 8];
+    let offered = [9u8; 32];
+    let chosen = [8u8; 32];
+    let hello = hello(&offered, &client);
+    let (reply, spoken, shared) = reply(&hello, &chosen);
+    let initial = Dest {
+        kind: Kind::Initial,
+        dcid: client.to_vec(),
+        scid: server.to_vec(),
+    };
+    let packet = initial.crypto(&Initial::new(&original).unwrap().server, 0, &spoken, 0);
+    let accepted = hello.accept(&reply, &shared).unwrap();
+    let mut handshake = Handshake::new(
+        Hash::Sha256,
+        Aead::Aes128,
+        accepted.client().secret(),
+        accepted.server().secret(),
+    )
+    .unwrap();
+    assert!(matches!(
+        handshake.ingest(&packet, client.len()),
+        Err(Error::Kind)
+    ));
+    let space = Dest {
+        kind: Kind::Handshake,
+        dcid: client.to_vec(),
+        scid: server.to_vec(),
+    };
+    let later = space.crypto(&handshake.server, 0, b"rest", 0);
+    let mut hearing = Hearing::new(&original, client.len()).unwrap();
+    assert!(matches!(hearing.ingest(&later), Err(Error::Kind)));
+}
+
+#[test]
+fn truncated() {
+    let original = [1u8; 8];
+    let client = [2u8; 4];
+    let server = [3u8; 8];
+    let hello = hello(&[9u8; 32], &client);
+    let (_, spoken, _) = reply(&hello, &[8u8; 32]);
+    let initial = Dest {
+        kind: Kind::Initial,
+        dcid: client.to_vec(),
+        scid: server.to_vec(),
+    };
+    let packet = initial.crypto(&Initial::new(&original).unwrap().server, 0, &spoken, 0);
+    let mut hearing = Hearing::new(&original, client.len()).unwrap();
+    assert!(hearing.ingest(&packet[..10]).is_err());
+    assert!(hearing.ingest(&packet[..packet.len() / 2]).is_err());
+}
+
+#[test]
+fn overlapping() {
+    let original = [1u8; 8];
+    let client = [2u8; 4];
+    let server = [3u8; 8];
+    let keys = Initial::new(&original).unwrap().server;
+    let initial = Dest {
+        kind: Kind::Initial,
+        dcid: client.to_vec(),
+        scid: server.to_vec(),
+    };
+    let first = initial.crypto(&keys, 0, b"hello-world", 0);
+    let clash = initial.crypto(&keys, 1, b"HELLO", 0);
+    let same = initial.crypto(&keys, 2, b"hello", 0);
+    let mut hearing = Hearing::new(&original, client.len()).unwrap();
+    assert_eq!(hearing.ingest(&first).unwrap(), 0);
+    assert!(matches!(hearing.ingest(&clash), Err(Error::Value)));
+    assert_eq!(hearing.ingest(&same).unwrap(), 2);
+    assert_eq!(hearing.crypto(), b"hello-world");
+}
+
+#[test]
+fn parameters() {
+    let client = [9u8; 4];
+    let hello = hello(&[9u8; 32], &client);
+    let mut found = None;
+    for item in &hello.offer().extensions {
+        if item.kind == 0x39 {
+            found = Some(item.data.clone());
+        }
+    }
+    let data = found.unwrap();
+    assert_eq!(Params::parse(&data).unwrap(), params(&client));
+    assert!(Params::parse(&data[..2]).is_err());
+    assert!(matches!(
+        Params::parse(&[0x0a, 0x01, 0x15]),
+        Err(Error::Value)
+    ));
 }
