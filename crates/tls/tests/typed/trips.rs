@@ -128,3 +128,24 @@ fn noise() {
         }
     }
 }
+
+fn prefix(kind: u16, data: &[u8], place: Place, size: usize) {
+    let part = Extension {
+        kind,
+        data: data[..size].to_vec(),
+    };
+    assert!(Typed::parse(&part, place).is_err(), "{kind} {size}");
+}
+
+#[test]
+fn prefixes() {
+    let mut dice = Dice::new(16);
+    for _ in 0..800 {
+        let (typed, place) = dice.typed();
+        let extension = typed.write().unwrap();
+        assert_eq!(Typed::parse(&extension, place), Ok(Some(typed)));
+        for size in 0..extension.data.len() {
+            prefix(extension.kind, &extension.data, place, size);
+        }
+    }
+}
