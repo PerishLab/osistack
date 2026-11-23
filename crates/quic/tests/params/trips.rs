@@ -1,5 +1,5 @@
 use crate::support::*;
-use quic::{Direction, Param, Params, Side};
+use quic::{Direction, Error, Param, Params, Side};
 
 impl Dice {
     fn number(&mut self) -> u64 {
@@ -92,5 +92,71 @@ fn noise() {
         if let Ok(found) = Params::parse(&bytes) {
             assert_eq!(Params::parse(&found.write().unwrap()).unwrap(), found);
         }
+    }
+}
+
+fn collect(dice: &mut Dice) -> Params {
+    let mut list: Vec<Param> = Vec::new();
+    for _ in 0..1 + dice.below(10) {
+        let param = dice.pick();
+        let seen = list
+            .iter()
+            .any(|other| Dice::identity(other) == Dice::identity(&param));
+        if !seen {
+            list.push(param);
+        }
+    }
+    Params { list }
+}
+
+fn prefix(params: &Params, bytes: &[u8], size: usize) {
+    match Params::parse(&bytes[..size]) {
+        Ok(found) => {
+            assert_eq!(Params::parse(&found.write().unwrap()).unwrap(), found);
+            assert!(params.list.starts_with(&found.list), "{size}");
+        }
+        Err(err) => assert_eq!(err, cut(), "{size}"),
+    }
+}
+
+#[test]
+fn prefixes() {
+    let mut dice = Dice::new(17);
+    let mut refused = 0;
+    for _ in 0..300 {
+        let params = collect(&mut dice);
+        let bytes = params.write().unwrap();
+        assert_eq!(Params::parse(&bytes).unwrap(), params);
+        for cut in 0..bytes.len() {
+            if Params::parse(&bytes[..cut]).is_err() {
+                refused += 1;
+            }
+            prefix(&params, &bytes, cut);
+        }
+    }
+    assert!(refused > 0);
+}
+
+#[test]
+fn refused() {
+    let mut dice = Dice::new(19);
+    for _ in 0..200 {
+        let small = dice.below(1200) as u64;
+        assert_eq!(write(vec![Param::Payload(small)]), Err(Error::Value));
+        let exponent = 21 + dice.below(40) as u64;
+        assert_eq!(write(vec![Param::Exponent(exponent)]), Err(Error::Value));
+        let delay = 16384 + dice.next() % 10_000;
+        assert_eq!(write(vec![Param::Delay(delay)]), Err(Error::Value));
+        let limit = dice.below(2) as u64;
+        assert_eq!(write(vec![Param::Limit(limit)]), Err(Error::Value));
+        let over = (1 << 60) + 1 + dice.below(50) as u64;
+        assert_eq!(
+            write(vec![Param::Streams(dice.kind(), over)]),
+            Err(Error::Value)
+        );
+        let id = dice.span(21, 8);
+        assert_eq!(write(vec![Param::Original(id.clone())]), Err(Error::Length));
+        assert_eq!(write(vec![Param::Source(id.clone())]), Err(Error::Length));
+        assert_eq!(write(vec![Param::Retry(id)]), Err(Error::Length));
     }
 }
