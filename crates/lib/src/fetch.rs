@@ -44,9 +44,8 @@ pub fn driven(mut client: Client, args: &[&str]) -> Result<Applied, Error> {
     if uri.scheme() != Scheme::Http && uri.scheme() != Scheme::Https {
         return Err(Error::Scheme);
     }
-    if let Some(total) = taken.total {
-        client.total = total;
-    }
+    client.total = taken.total.unwrap_or(client.total);
+    client.connect = taken.connect.unwrap_or(client.connect);
     client.extra = taken.extra;
     client.follow = taken.follow;
     if let Some(via) = taken.proxy {
@@ -110,6 +109,7 @@ struct Parsed {
     head: bool,
     cacert: Option<String>,
     dump: Option<String>,
+    connect: Option<Duration>,
 }
 
 impl Parsed {
@@ -135,6 +135,7 @@ impl Parsed {
             head: false,
             cacert: None,
             dump: None,
+            connect: None,
         };
         let mut at = 0;
         while at < args.len() {
@@ -196,6 +197,10 @@ impl Parsed {
             }
             "--max-time" => {
                 self.total = Some(limit(needed(args, at)?)?);
+                Ok(at + 2)
+            }
+            "--connect-timeout" => {
+                self.connect = Some(limit(needed(args, at)?)?);
                 Ok(at + 2)
             }
             "-w" | "--write-out" => {
