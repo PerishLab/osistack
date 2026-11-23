@@ -136,7 +136,7 @@ impl<'a> Opened<'a> {
             }
             Err(error) => return Err(error),
         };
-        Ok((response, self.exchange.release(), live))
+        Ok((response, self.exchange.release()?, live))
     }
 }
 
@@ -145,7 +145,7 @@ fn kept(uri: &Uri, head: &Head, framing: Framing, exchange: Exchange<'_>) -> Opt
         return None;
     }
     Some(Held {
-        slot: exchange.release(),
+        slot: exchange.release().ok()?,
         host: uri.host().to_owned(),
         port: uri.port(),
         mux: None,

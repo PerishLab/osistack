@@ -70,8 +70,12 @@ impl<'a> Exchange<'a> {
     }
 
     fn hold(&mut self, host: &str, offered: bool) -> Result<(), Error> {
-        let Body::Plain(stream) = self.body.take().ok_or(Error::Short)? else {
-            return Err(Error::Scheme);
+        let stream = match self.body.take().ok_or(Error::Short)? {
+            Body::Plain(stream) => stream,
+            other => {
+                self.body = Some(other);
+                return Err(Error::Scheme);
+            }
         };
         let link = if offered {
             secure::browse(stream, host, self.client, self.deadline)?
@@ -87,17 +91,17 @@ impl<'a> Exchange<'a> {
         Ok(std::mem::take(&mut self.data))
     }
 
-    pub(crate) fn release(self) -> Slot {
+    pub(crate) fn release(self) -> Result<Slot, Error> {
         match self.body {
-            Some(Body::Plain(stream)) => Slot::Plain {
+            Some(Body::Plain(stream)) => Ok(Slot::Plain {
                 stream,
                 data: self.data,
-            },
-            Some(Body::Secure(link)) => Slot::Secure {
+            }),
+            Some(Body::Secure(link)) => Ok(Slot::Secure {
                 link,
                 data: self.data,
-            },
-            None => panic!("held"),
+            }),
+            None => Err(Error::Short),
         }
     }
 
