@@ -72,6 +72,10 @@ fn push(stream: &mut TcpStream, record: &Record) {
     stream.write_all(&record.write().unwrap()).unwrap();
 }
 
+pub fn client() {
+    remote();
+}
+
 fn remote() {
     let held = mint(HOST);
     let listener = TcpListener::bind("127.0.0.1:0").unwrap();

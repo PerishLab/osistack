@@ -31,7 +31,7 @@ pub fn table() -> Vec<Capability> {
         Capability::new(Area::Http1, "compression", State::Excluded),
         Capability::new(Area::Http1, "authentication", State::Excluded),
         Capability::new(Area::Http1, "general-server", State::Excluded),
-        Capability::new(Area::Tls, "client", State::Unverified),
+        Capability::new(Area::Tls, "client", State::Supported),
         Capability::new(Area::Tls, "x25519", State::Supported),
         Capability::new(Area::Tls, "p256", State::Supported),
         Capability::new(Area::Tls, "aes-gcm", State::Supported),
