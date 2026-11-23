@@ -8,4 +8,8 @@ pub enum Error {
     Userinfo,
     Host,
     Port,
+    Order,
+    Duplicate,
+    Pseudo,
+    Target,
 }
