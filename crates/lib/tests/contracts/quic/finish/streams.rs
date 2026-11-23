@@ -1,0 +1,93 @@
+use super::remote::{Session, session};
+use quic::{Frame, Number, Role, Short, Streams};
+use std::net::UdpSocket;
+
+fn pack(keys: &quic::Keys, dcid: &[u8], number: u64, payload: &[u8]) -> Vec<u8> {
+    let written = Number::new(number, None).unwrap();
+    let short = Short {
+        spin: false,
+        phase: false,
+        dcid: dcid.to_vec(),
+        offset: 0,
+    };
+    keys.protect(number, &short.write(&written).unwrap(), payload)
+        .unwrap()
+}
+
+fn peek(keys: &quic::Keys, packet: &[u8], local: usize) -> Vec<Frame> {
+    let payload = keys.unprotect(packet, 1 + local, None).unwrap().payload;
+    Frame::all(&payload).unwrap()
+}
+
+fn emit(socket: &UdpSocket, keys: &quic::Keys, dcid: &[u8], frame: Frame) {
+    let payload = Frame::join(&[frame]).unwrap();
+    socket.send(&pack(keys, dcid, 0, &payload)).unwrap();
+}
+
+fn take(socket: &UdpSocket, keys: &quic::Keys, local: usize) -> Vec<Frame> {
+    let mut buf = [0u8; 2048];
+    let used = socket.recv(&mut buf).unwrap();
+    peek(keys, &buf[..used], local)
+}
+
+fn fresh() -> Streams {
+    Streams::new(Role::Client, 8, 64 * 1024, 64 * 1024)
+}
+
+fn peer() -> Streams {
+    Streams::new(Role::Server, 8, 64 * 1024, 64 * 1024)
+}
+
+fn wired(session: &Session) {
+    let mut client = fresh();
+    let mut server = peer();
+    let id = client.open().unwrap();
+    assert_eq!(id, 0);
+    assert_eq!(client.write(id, b"ping").unwrap(), 4);
+    client.finish(id).unwrap();
+    let frame = client.next(id, 1200).unwrap().unwrap();
+    emit(
+        &session.near,
+        &session.applied.client,
+        &session.server,
+        frame,
+    );
+    let frames = take(&session.peer, &session.applied.client, session.server.len());
+    server.ingest(&frames).unwrap();
+    assert_eq!(server.read(id, 16).unwrap(), b"ping");
+    assert_eq!(server.write(id, b"pong").unwrap(), 4);
+    server.finish(id).unwrap();
+    let frame = server.next(id, 1200).unwrap().unwrap();
+    emit(
+        &session.peer,
+        &session.applied.server,
+        &session.client,
+        frame,
+    );
+    let frames = take(&session.near, &session.applied.server, session.client.len());
+    client.ingest(&frames).unwrap();
+    assert_eq!(client.read(id, 16).unwrap(), b"pong");
+}
+
+#[test]
+fn writes() {
+    let mut client = fresh();
+    let id = client.open().unwrap();
+    assert_eq!(client.write(id, b"hello").unwrap(), 5);
+    client.finish(id).unwrap();
+    let Frame::Stream(stream) = client.next(id, 1200).unwrap().unwrap() else {
+        panic!("not stream");
+    };
+    assert_eq!(stream.id, 0);
+    assert_eq!(stream.offset, 0);
+    assert_eq!(stream.data, b"hello");
+    assert!(stream.fin);
+    let mut server = peer();
+    server.ingest(&[Frame::Stream(stream)]).unwrap();
+    assert_eq!(server.read(id, 16).unwrap(), b"hello");
+}
+
+#[test]
+fn loopback() {
+    wired(&session());
+}

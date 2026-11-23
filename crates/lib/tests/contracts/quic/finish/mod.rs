@@ -1,4 +1,5 @@
 mod remote;
+mod streams;
 
 use crate::tls::{mint, spoken};
 use crypto::{Aead, Group, Hash};
