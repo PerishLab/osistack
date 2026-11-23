@@ -18,7 +18,7 @@ pub fn table() -> Vec<Capability> {
         Capability::new(Area::Http1, "http10-response", State::Supported),
         Capability::new(Area::Http1, "smuggling-defense", State::Supported),
         Capability::new(Area::Http1, "redirect-policy", State::Supported),
-        Capability::new(Area::Http1, "total-timeout", State::Unverified),
+        Capability::new(Area::Http1, "total-timeout", State::Supported),
         Capability::new(Area::Http1, "phase-timeout", State::Unverified),
         Capability::new(Area::Http1, "status-not-error", State::Supported),
         Capability::new(Area::Http1, "loopback-test-server", State::Supported),

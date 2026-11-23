@@ -4,6 +4,7 @@ use crate::exchange::Exchange;
 use h1::{Framing, Head, Request, Version};
 use http::{Method, Scheme, Uri};
 use socket::Stream;
+use std::time::Instant;
 
 pub struct Pool {
     client: Client,
@@ -62,7 +63,12 @@ impl Pool {
             .take()
             .filter(|held| held.host == uri.host() && held.port == uri.port())
         {
-            return Ok(Exchange::resume(&self.client, held.stream, held.data));
+            return Ok(Exchange::resume(
+                &self.client,
+                held.stream,
+                held.data,
+                Instant::now() + self.client.total,
+            ));
         }
         Exchange::open(&self.client, uri.host(), uri.port())
     }
