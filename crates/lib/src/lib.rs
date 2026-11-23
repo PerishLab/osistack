@@ -2,10 +2,12 @@ mod catalog;
 mod client;
 mod error;
 mod exchange;
+mod fetch;
 mod profile;
 
 pub use client::{Client, Response};
 pub use error::Error;
+pub use fetch::{command, fetch};
 pub use h1;
 pub use http;
 pub use profile::{

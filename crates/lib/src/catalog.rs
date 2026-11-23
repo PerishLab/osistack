@@ -98,7 +98,7 @@ pub fn table() -> Vec<Capability> {
         Capability::new(Area::Http3, "webtransport", State::Excluded),
         Capability::new(Area::Crypto, "seam", State::Supported),
         Capability::new(Area::Crypto, "primitives", State::Supported),
-        Capability::new(Area::Cli, "curl-subset", State::Unverified),
+        Capability::new(Area::Cli, "curl-subset", State::Supported),
         Capability::new(Area::Scope, "userspace-tcpip", State::Excluded),
         Capability::new(Area::Scope, "server-replacement", State::Excluded),
         Capability::new(Area::Scope, "bootstrap-curl-replacement", State::Excluded),

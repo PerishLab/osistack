@@ -8,6 +8,7 @@ pub enum Error {
     Scheme,
     Limit,
     Short,
+    Usage,
 }
 
 impl fmt::Display for Error {
@@ -19,6 +20,7 @@ impl fmt::Display for Error {
             Self::Scheme => write!(out, "only the http scheme is supported"),
             Self::Limit => write!(out, "response exceeds the configured size limit"),
             Self::Short => write!(out, "connection closed before the response was complete"),
+            Self::Usage => write!(out, "invalid fetch arguments"),
         }
     }
 }

@@ -91,6 +91,7 @@ fn supported() {
             (Area::Http3, "alt-svc-discovery"),
             (Area::Crypto, "seam"),
             (Area::Crypto, "primitives"),
+            (Area::Cli, "curl-subset"),
         ]
     );
 }
@@ -98,12 +99,9 @@ fn supported() {
 #[test]
 fn protocols() {
     let profile = Profile::current();
-    assert!(
-        profile
-            .capabilities
-            .iter()
-            .filter(|c| c.area == Area::Cli)
-            .all(|c| c.state != State::Supported)
+    assert_eq!(
+        profile.state(Area::Cli, "curl-subset"),
+        Some(State::Supported)
     );
 }
 
@@ -149,7 +147,6 @@ fn pending() {
         (Area::Http1, "phase-timeout"),
         (Area::Quic, "v1"),
         (Area::Quic, "retry-handshake"),
-        (Area::Cli, "curl-subset"),
     ];
     for (area, name) in pending {
         assert_eq!(profile.state(area, name), Some(State::Unverified), "{name}");
@@ -170,9 +167,9 @@ fn unique() {
             + profile.count(State::Unverified),
         profile.capabilities.len()
     );
-    assert_eq!(profile.count(State::Supported), 63);
+    assert_eq!(profile.count(State::Supported), 64);
     assert_eq!(profile.count(State::Excluded), 32);
-    assert_eq!(profile.count(State::Unverified), 8);
+    assert_eq!(profile.count(State::Unverified), 7);
 }
 
 #[test]
@@ -191,7 +188,7 @@ fn guidance() {
         .filter(|h| h.availability == Availability::Available)
         .map(|h| h.operation)
         .collect::<Vec<_>>();
-    assert_eq!(available, vec![Operation::Capabilities]);
+    assert_eq!(available, vec![Operation::Capabilities, Operation::Fetch]);
 }
 
 #[test]
@@ -210,6 +207,7 @@ fn behaved() {
         (Area::Quic, quic::table()),
         (Area::Tls, tls::table()),
         (Area::Crypto, seam::table()),
+        (Area::Cli, cli()),
     ];
     for (area, rows) in tables {
         let mut declared: Vec<&str> = profile
@@ -230,4 +228,22 @@ fn behaved() {
         }
         assert!(failed.is_empty(), "{failed:?}");
     }
+}
+
+fn cli() -> Vec<(&'static str, fn())> {
+    vec![("curl-subset", subset)]
+}
+
+fn subset() {
+    use h1::Server;
+    use osistack::command;
+    let server = Server::replying(vec![
+        b"HTTP/1.1 200 OK\r\nContent-Length: 4\r\n\r\nbody".to_vec(),
+    ]);
+    let target = format!("http://127.0.0.1:{}{}", server.port, "/path?q=1");
+    let response = command(&["--method", "GET", &target]).unwrap();
+    assert_eq!(response.head.status.get(), 200);
+    assert_eq!(response.body, b"body");
+    let seen = String::from_utf8(server.captured()).unwrap();
+    assert!(seen.starts_with("GET /path?q=1 HTTP/1.1\r\n"), "{seen}");
 }

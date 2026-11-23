@@ -97,9 +97,9 @@ pub fn help() -> Vec<Help> {
         .into_iter()
         .map(|operation| Help {
             operation,
-            availability: match dispatch(operation) {
-                Ok(_) => Availability::Available,
-                Err(_) => Availability::Unavailable,
+            availability: match operation {
+                Operation::Capabilities | Operation::Fetch => Availability::Available,
+                Operation::Serve => Availability::Unavailable,
             },
         })
         .collect()
