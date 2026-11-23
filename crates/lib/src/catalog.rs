@@ -13,7 +13,7 @@ pub fn table() -> Vec<Capability> {
         Capability::new(Area::Http1, "framing", State::Supported),
         Capability::new(Area::Http1, "content-length", State::Supported),
         Capability::new(Area::Http1, "chunked", State::Supported),
-        Capability::new(Area::Http1, "keep-alive-pool", State::Unverified),
+        Capability::new(Area::Http1, "keep-alive-pool", State::Supported),
         Capability::new(Area::Http1, "connection-close", State::Supported),
         Capability::new(Area::Http1, "http10-response", State::Supported),
         Capability::new(Area::Http1, "smuggling-defense", State::Supported),

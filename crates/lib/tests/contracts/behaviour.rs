@@ -9,6 +9,7 @@ pub fn table() -> Vec<(&'static str, Check)> {
     vec![
         ("content-length", length as Check),
         ("chunked", chunked as Check),
+        ("keep-alive-pool", pooling as Check),
         ("connection-close", closing as Check),
         ("http10-response", legacy as Check),
         ("status-not-error", status as Check),
@@ -200,4 +201,23 @@ fn proxy() {
         "{seen}"
     );
     assert!(Request::parse(seen.as_bytes(), 4096).unwrap().is_some());
+}
+
+fn pooling() {
+    use osistack::Pool;
+    let server = Server::holding(vec![
+        b"HTTP/1.1 200 OK\r\nContent-Length: 1\r\n\r\na".to_vec(),
+        b"HTTP/1.1 200 OK\r\nContent-Length: 1\r\n\r\nb".to_vec(),
+    ]);
+    let first = format!("http://127.0.0.1:{}/one", server.port);
+    let second = format!("http://127.0.0.1:{}/two", server.port);
+    let one = osistack::http::Uri::parse(&first).unwrap();
+    let two = osistack::http::Uri::parse(&second).unwrap();
+    let mut pool = Pool::new(client());
+    assert_eq!(pool.fetch(get(), &one, b"").unwrap().body, b"a");
+    assert_eq!(pool.fetch(get(), &two, b"").unwrap().body, b"b");
+    let seen = String::from_utf8(server.captured()).unwrap();
+    assert!(seen.contains("GET /one HTTP/1.1\r\n"), "{seen}");
+    assert!(seen.contains("GET /two HTTP/1.1\r\n"), "{seen}");
+    assert!(seen.contains("connection: keep-alive\r\n"), "{seen}");
 }

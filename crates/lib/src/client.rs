@@ -56,7 +56,7 @@ impl Client {
             return Err(Error::Scheme);
         }
         let bodiless = method.text() == "HEAD" || method.text() == "CONNECT";
-        let fields = Self::fields(&method, uri, body)?;
+        let fields = Self::fields(&method, uri, body, true)?;
         let request = Request::new(method, target, fields)?.encode()?;
         let mut exchange = Exchange::open(self, uri.host(), uri.port())?;
         exchange.send(&request)?;
@@ -71,15 +71,21 @@ impl Client {
         Ok(Response { head, body })
     }
 
-    fn fields(method: &Method, uri: &Uri, body: &[u8]) -> Result<Vec<Field>, Error> {
+    pub(crate) fn fields(
+        method: &Method,
+        uri: &Uri,
+        body: &[u8],
+        close: bool,
+    ) -> Result<Vec<Field>, Error> {
         let host = if method.text() == "CONNECT" {
             hostport(uri)
         } else {
             uri.authority()
         };
+        let token = if close { "close" } else { "keep-alive" };
         let mut fields = vec![
             Self::field("host", host.as_bytes())?,
-            Self::field("connection", b"close")?,
+            Self::field("connection", token.as_bytes())?,
         ];
         if !body.is_empty() || !matches!(method.text(), "GET" | "HEAD" | "CONNECT") {
             let size = body.len().to_string();
