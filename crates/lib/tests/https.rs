@@ -22,6 +22,17 @@ fn get() -> Method {
     Method::new("GET").unwrap()
 }
 
+fn sized(seen: &[u8]) -> Option<(usize, usize)> {
+    let start = seen.windows(4).position(|part| part == b"\r\n\r\n")?;
+    let end = start + 4;
+    let head = std::str::from_utf8(&seen[..start]).ok()?;
+    let line = head
+        .lines()
+        .find(|line| line.to_ascii_lowercase().starts_with("content-length:"))?;
+    let size = line[15..].trim().parse().ok()?;
+    Some((end, size))
+}
+
 fn pull(stream: &mut TcpStream, buffer: &mut Vec<u8>) -> Record {
     let mut chunk = [0u8; 4096];
     loop {
@@ -112,7 +123,11 @@ fn serve(mut stream: TcpStream) -> Vec<u8> {
             continue;
         }
         seen.extend(opened.payload);
-        if seen.windows(4).any(|part| part == b"\r\n\r\n") {
+        if let Some((end, size)) = sized(&seen) {
+            if seen.len() >= end + size {
+                break;
+            }
+        } else if seen.windows(4).any(|part| part == b"\r\n\r\n") {
             break;
         }
     }
@@ -154,6 +169,37 @@ fn fetch() {
         seen.contains(&format!("host: localhost:{port}\r\n")),
         "{seen}"
     );
+}
+
+#[test]
+fn posting() {
+    let held = mint("localhost");
+    let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+    let port = listener.local_addr().unwrap().port();
+    let server = thread::spawn(move || {
+        let (stream, _) = listener.accept().unwrap();
+        serve(stream)
+    });
+    let client = Client {
+        roots: held.roots,
+        connect: Duration::from_secs(5),
+        read: Duration::from_secs(5),
+        write: Duration::from_secs(5),
+        ..Client::default()
+    };
+    let uri = Uri::parse(&format!("https://localhost:{port}/path")).unwrap();
+    let method = Method::new("POST").unwrap();
+    let response = client.fetch(method, &uri, b"hello").unwrap();
+    assert_eq!(response.head.status.get(), 200);
+    assert_eq!(response.body, b"ok");
+    let seen = String::from_utf8(server.join().unwrap()).unwrap();
+    assert!(seen.starts_with("POST /path HTTP/1.1\r\n"), "{seen}");
+    assert!(
+        seen.contains(&format!("host: localhost:{port}\r\n")),
+        "{seen}"
+    );
+    assert!(seen.contains("content-length: 5\r\n"), "{seen}");
+    assert!(seen.ends_with("\r\n\r\nhello"), "{seen}");
 }
 
 #[test]
