@@ -1,11 +1,17 @@
 use crate::client::Client;
 use crate::error::Error;
+use crate::secure::{self, Link};
 use h1::{Chunked, Framing, Head};
 use socket::Stream;
 use std::time::{Duration, Instant};
 
+enum Body {
+    Plain(Stream),
+    Secure(Link),
+}
+
 pub struct Exchange<'a> {
-    stream: Stream,
+    body: Option<Body>,
     client: &'a Client,
     data: Vec<u8>,
     deadline: Instant,
@@ -30,32 +36,61 @@ impl<'a> Exchange<'a> {
 
     pub fn resume(client: &'a Client, stream: Stream, data: Vec<u8>, deadline: Instant) -> Self {
         Self {
-            stream,
+            body: Some(Body::Plain(stream)),
             client,
             data,
             deadline,
         }
     }
 
+    pub fn wrap(&mut self, host: &str) -> Result<(), Error> {
+        let Body::Plain(stream) = self.body.take().ok_or(Error::Short)? else {
+            return Err(Error::Scheme);
+        };
+        let link = secure::open(stream, host, self.client, self.deadline)?;
+        self.body = Some(Body::Secure(link));
+        Ok(())
+    }
+
     pub fn taken(self) -> (Stream, Vec<u8>) {
-        (self.stream, self.data)
+        let Some(Body::Plain(stream)) = self.body else {
+            panic!("held");
+        };
+        (stream, self.data)
     }
 
     fn limit(&self, phase: Duration) -> Result<Duration, Error> {
         budget(self.deadline, phase)
     }
 
-    fn wrap(&self, error: socket::Error, phase: Duration) -> Error {
-        stamp(error, self.deadline, phase)
+    fn used(&mut self) -> Result<&mut Body, Error> {
+        self.body.as_mut().ok_or(Error::Short)
+    }
+
+    fn emit(&mut self, bytes: &[u8], phase: Duration) -> Result<usize, Error> {
+        let timeout = self.limit(phase)?;
+        match self.used()? {
+            Body::Plain(stream) => stream
+                .write(bytes, Some(timeout))
+                .map_err(|error| stamp(error, self.deadline, phase)),
+            Body::Secure(link) => link.write(bytes, timeout),
+        }
+    }
+
+    fn recv(&mut self, buf: &mut [u8], phase: Duration) -> Result<usize, Error> {
+        let timeout = self.limit(phase)?;
+        match self.used()? {
+            Body::Plain(stream) => stream
+                .read(buf, Some(timeout))
+                .map_err(|error| stamp(error, self.deadline, phase)),
+            Body::Secure(link) => link.read(buf, timeout),
+        }
     }
 
     pub fn send(&mut self, bytes: &[u8]) -> Result<(), Error> {
         let mut sent = 0;
         while sent < bytes.len() {
-            let count = self
-                .stream
-                .write(&bytes[sent..], Some(self.limit(self.client.write)?))
-                .map_err(|error| self.wrap(error, self.client.write))?;
+            let count = self.emit(&bytes[sent..], self.client.write)?;
             if count == 0 {
                 return Err(Error::Short);
             }
@@ -101,10 +136,7 @@ impl<'a> Exchange<'a> {
 
     fn pull(&mut self) -> Result<usize, Error> {
         let mut chunk = [0u8; 8192];
-        let count = self
-            .stream
-            .read(&mut chunk, Some(self.limit(self.client.read)?))
-            .map_err(|error| self.wrap(error, self.client.read))?;
+        let count = self.recv(&mut chunk, self.client.read)?;
         self.data.extend_from_slice(&chunk[..count]);
         Ok(count)
     }

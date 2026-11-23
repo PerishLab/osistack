@@ -40,7 +40,7 @@ fn silent() {
 fn scheme() {
     let uri = Uri::parse("https://127.0.0.1:1/").unwrap();
     let outcome = client().fetch(get(), &uri, b"");
-    assert!(matches!(outcome, Err(Error::Scheme)));
+    assert!(matches!(outcome, Err(Error::Socket(Socket::Connect(_)))));
 }
 
 #[test]

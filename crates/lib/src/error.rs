@@ -5,7 +5,9 @@ pub enum Error {
     Socket(socket::Error),
     Frame(h1::Error),
     Http(http::Error),
+    Tls(tls::Error),
     Scheme,
+    Random,
     Limit,
     Short,
     Usage,
@@ -19,7 +21,9 @@ impl fmt::Display for Error {
             Self::Socket(error) => write!(out, "socket: {error}"),
             Self::Frame(error) => write!(out, "http/1.1 framing: {error:?}"),
             Self::Http(error) => write!(out, "http semantics: {error:?}"),
-            Self::Scheme => write!(out, "only the http scheme is supported"),
+            Self::Tls(error) => write!(out, "tls: {error:?}"),
+            Self::Scheme => write!(out, "only the http and https schemes are supported"),
+            Self::Random => write!(out, "could not read random bytes"),
             Self::Limit => write!(out, "response exceeds the configured size limit"),
             Self::Short => write!(out, "connection closed before the response was complete"),
             Self::Usage => write!(out, "invalid fetch arguments"),
@@ -56,5 +60,11 @@ impl From<h1::Error> for Error {
 impl From<http::Error> for Error {
     fn from(error: http::Error) -> Self {
         Self::Http(error)
+    }
+}
+
+impl From<tls::Error> for Error {
+    fn from(error: tls::Error) -> Self {
+        Self::Tls(error)
     }
 }
