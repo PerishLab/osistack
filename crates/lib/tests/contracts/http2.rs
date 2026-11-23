@@ -1,8 +1,117 @@
 use crate::behaviour::Check;
-use h2::{Connection, Decoder, Encoder, Frame, Header, Settings};
+use h2::{Codec, Connection, Decoder, Encoder, Error, Frame, Header, Setting, Settings};
 
 pub fn table() -> Vec<(&'static str, Check)> {
-    vec![("hpack", hpack as Check)]
+    vec![
+        ("hpack", hpack as Check),
+        ("settings", settings as Check),
+        ("headers", headers as Check),
+        ("continuation", continuation as Check),
+        ("data", data as Check),
+        ("flow-control", window as Check),
+        ("reset-stream", reset as Check),
+        ("goaway", goaway as Check),
+        ("ping", ping as Check),
+    ]
+}
+
+fn trip(frame: &Frame) {
+    let codec = Codec::default();
+    let bytes = codec.encode(frame).unwrap();
+    assert_eq!(codec.decode(&bytes), Ok(Some((frame.clone(), bytes.len()))));
+}
+
+fn wire(kind: u8, flags: u8, stream: u8, payload: &[u8]) -> Vec<u8> {
+    let length = payload.len() as u32;
+    let mut out = length.to_be_bytes()[1..].to_vec();
+    out.extend([kind, flags, 0, 0, 0, stream]);
+    out.extend(payload);
+    out
+}
+
+fn refuses(kind: u8, flags: u8, stream: u8, payload: &[u8]) -> Error {
+    Codec::default()
+        .decode(&wire(kind, flags, stream, payload))
+        .unwrap_err()
+}
+
+fn settings() {
+    trip(&Frame::Settings {
+        ack: false,
+        list: vec![Setting { id: 3, value: 100 }, Setting { id: 2, value: 0 }],
+    });
+    trip(&Frame::Settings {
+        ack: true,
+        list: Vec::new(),
+    });
+    assert_eq!(refuses(4, 1, 0, &[0; 6]), Error::Length);
+    assert_eq!(refuses(4, 0, 1, &[]), Error::Stream);
+}
+
+fn headers() {
+    trip(&Frame::Headers {
+        stream: 1,
+        fin: true,
+        complete: true,
+        pad: None,
+        priority: None,
+        block: vec![0x82, 0x86, 0x84],
+    });
+    assert_eq!(refuses(1, 4, 0, &[0x82]), Error::Stream);
+}
+
+fn continuation() {
+    trip(&Frame::Continuation {
+        stream: 1,
+        complete: true,
+        block: vec![0x84, 0x86],
+    });
+    assert_eq!(refuses(9, 4, 0, &[0x84]), Error::Stream);
+}
+
+fn data() {
+    trip(&Frame::Data {
+        stream: 1,
+        fin: true,
+        pad: None,
+        data: b"hello".to_vec(),
+    });
+    assert_eq!(refuses(0, 0, 0, &[1]), Error::Stream);
+    assert_eq!(refuses(0, 8, 1, &[4, 1, 2, 3]), Error::Padding);
+}
+
+fn window() {
+    trip(&Frame::Window {
+        stream: 1,
+        increment: 65536,
+    });
+    assert_eq!(refuses(8, 0, 1, &[0, 0, 0, 0]), Error::Increment);
+}
+
+fn reset() {
+    trip(&Frame::Reset { stream: 3, code: 8 });
+    assert_eq!(refuses(3, 0, 0, &[0; 4]), Error::Stream);
+}
+
+fn goaway() {
+    trip(&Frame::Goaway {
+        last: 5,
+        code: 2,
+        debug: b"hi".to_vec(),
+    });
+    assert_eq!(refuses(7, 0, 1, &[0; 8]), Error::Stream);
+}
+
+fn ping() {
+    trip(&Frame::Ping {
+        ack: false,
+        data: [1, 2, 3, 4, 5, 6, 7, 8],
+    });
+    trip(&Frame::Ping {
+        ack: true,
+        data: [1, 2, 3, 4, 5, 6, 7, 8],
+    });
+    assert_eq!(refuses(6, 0, 1, &[0; 8]), Error::Stream);
 }
 
 fn request() -> Vec<Header> {
