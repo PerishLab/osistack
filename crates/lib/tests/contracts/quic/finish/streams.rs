@@ -131,3 +131,37 @@ fn many() {
     assert_eq!(client.read(one, 16).unwrap(), b"pong");
     assert_eq!(client.read(two, 16).unwrap(), b"peng");
 }
+
+#[test]
+fn probe() {
+    let session = session();
+    let mut client = fresh();
+    let mut server = peer();
+    let id = client.open().unwrap();
+    assert_eq!(client.write(id, b"ping").unwrap(), 4);
+    client.finish(id).unwrap();
+    let first = client.next(id, 1200).unwrap().unwrap();
+    session
+        .near
+        .send(&pack(
+            &session.applied.client,
+            &session.server,
+            0,
+            &Frame::join(&[first]).unwrap(),
+        ))
+        .unwrap();
+    let frames = take(&session.peer, &session.applied.client, session.server.len());
+    server.ingest(&frames).unwrap();
+    assert_eq!(server.read(id, 16).unwrap(), b"ping");
+    session
+        .near
+        .send(&pack(
+            &session.applied.client,
+            &session.server,
+            1,
+            &Frame::join(&[Frame::Ping, Frame::Padding(16)]).unwrap(),
+        ))
+        .unwrap();
+    let frames = take(&session.peer, &session.applied.client, session.server.len());
+    assert_eq!(frames[0], Frame::Ping);
+}
