@@ -56,6 +56,7 @@ fn supported() {
             (Area::Quic, "connection-id"),
             (Area::Quic, "packet-protection"),
             (Area::Quic, "path-validation"),
+            (Area::Quic, "key-update"),
             (Area::Quic, "newreno"),
             (Area::Http3, "control-stream"),
             (Area::Http3, "settings"),
@@ -133,7 +134,6 @@ fn pending() {
         (Area::Http2, "flow-control"),
         (Area::Quic, "v1"),
         (Area::Quic, "retry-handshake"),
-        (Area::Quic, "key-update"),
         (Area::Quic, "ecn"),
         (Area::Quic, "gso"),
         (Area::Crypto, "primitives"),
@@ -158,9 +158,9 @@ fn unique() {
             + profile.count(State::Unverified),
         profile.capabilities.len()
     );
-    assert_eq!(profile.count(State::Supported), 38);
+    assert_eq!(profile.count(State::Supported), 39);
     assert_eq!(profile.count(State::Excluded), 32);
-    assert_eq!(profile.count(State::Unverified), 33);
+    assert_eq!(profile.count(State::Unverified), 32);
 }
 
 #[test]
