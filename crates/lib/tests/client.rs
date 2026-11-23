@@ -112,7 +112,6 @@ fn split() {
 }
 
 #[test]
-#[ignore = "openssl"]
 fn differing() {
     if !common::outside::present() {
         return;
