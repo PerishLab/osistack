@@ -2,7 +2,9 @@
 mod common;
 
 use common::{Server, client, text};
-use osistack::http::Method;
+use osistack::Roots;
+use osistack::http::{Method, Uri};
+use std::fs;
 use std::time::Duration;
 
 fn get() -> Method {
@@ -106,4 +108,22 @@ fn split() {
     let response = client().fetch(get(), &server.uri, b"").unwrap();
     assert_eq!(response.body, b"abcdef");
     assert_eq!(response.head.values("x-a"), vec![&b"b"[..]]);
+}
+
+#[test]
+#[ignore = "openssl"]
+fn differing() {
+    if !common::outside::present() {
+        return;
+    }
+    let issued = common::outside::minted();
+    let server = common::outside::serving(&issued.cert, &issued.key);
+    let mut client = client();
+    let text = fs::read_to_string(&issued.cert).unwrap();
+    client.roots = Roots::pem(&text).unwrap();
+    let port = server.port;
+    let uri = Uri::parse(&format!("https://localhost:{port}/path")).unwrap();
+    let response = client.fetch(get(), &uri, b"").unwrap();
+    assert_eq!(response.head.status.get(), 200);
+    assert!(!response.body.is_empty());
 }
