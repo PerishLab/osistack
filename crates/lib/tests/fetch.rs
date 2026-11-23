@@ -69,7 +69,7 @@ fn posting() {
     let response = command(&["fetch", "--method", "POST", "--data", "hi", &target]).unwrap();
     assert_eq!(response.head.status.get(), 201);
     assert_eq!(response.body, b"ok");
-    let seen = String::from_utf8(server.captured()).unwrap();
+    let seen = String::from_utf8(server.captured().unwrap()).unwrap();
     assert!(seen.starts_with("POST /upload HTTP/1.1\r\n"), "{seen}");
     assert!(seen.contains("content-length: 2\r\n"), "{seen}");
     assert!(seen.ends_with("\r\n\r\nhi"), "{seen}");
@@ -108,7 +108,7 @@ fn located() {
     let (src, target) = hosted(head.as_bytes(), "/old");
     let response = command(&["-fsSL", &target]).unwrap();
     assert_eq!(response.body, b"ok");
-    let _ = (src.captured(), dest.captured());
+    let _ = (src.captured().unwrap(), dest.captured().unwrap());
     let head =
         b"HTTP/1.1 302 Found\r\nLocation: http://127.0.0.1:9/next\r\nContent-Length: 0\r\n\r\n"
             .to_vec();
@@ -160,7 +160,7 @@ fn headed() {
     let (server, target) = served();
     let response = command(&["-H", "X-Test: one", "--header", "X-More: two", &target]).unwrap();
     assert_eq!(response.body, b"ok");
-    let seen = String::from_utf8(server.captured()).unwrap();
+    let seen = String::from_utf8(server.captured().unwrap()).unwrap();
     assert!(seen.contains("x-test: one\r\n"), "{seen}");
     assert!(seen.contains("x-more: two\r\n"), "{seen}");
 }
@@ -209,7 +209,7 @@ fn skipping() {
         .unwrap()
         .response;
     assert_eq!(response.body, b"ok");
-    let seen = String::from_utf8(origin.captured()).unwrap();
+    let seen = String::from_utf8(origin.captured().unwrap()).unwrap();
     assert!(seen.starts_with("GET /path HTTP/1.1\r\n"), "{seen}");
 }
 
@@ -219,7 +219,7 @@ fn proxied() {
     let hop = format!("http://127.0.0.1:{}", proxy.port);
     let response = command(&["--proxy", &hop, "http://127.0.0.1:9/path"]).unwrap();
     assert_eq!(response.body, b"proxy");
-    let seen = String::from_utf8(proxy.captured()).unwrap();
+    let seen = String::from_utf8(proxy.captured().unwrap()).unwrap();
     assert!(
         seen.starts_with("GET http://127.0.0.1:9/path HTTP/1.1\r\n"),
         "{seen}"
@@ -227,7 +227,7 @@ fn proxied() {
     let (origin, target) = served();
     let response = command(&["-x", &hop, "--noproxy", "127.0.0.1", &target]).unwrap();
     assert_eq!(response.body, b"ok");
-    let seen = String::from_utf8(origin.captured()).unwrap();
+    let seen = String::from_utf8(origin.captured().unwrap()).unwrap();
     assert!(seen.starts_with("GET /path HTTP/1.1\r\n"), "{seen}");
 }
 
@@ -236,7 +236,7 @@ fn heading() {
     for flag in ["-I", "--head"] {
         let (server, target) = hosted(b"HTTP/1.1 200 OK\r\ncontent-length: 0\r\n\r\n", "/path");
         command(&[flag, &target]).unwrap();
-        let seen = String::from_utf8(server.captured()).unwrap();
+        let seen = String::from_utf8(server.captured().unwrap()).unwrap();
         assert!(seen.starts_with("HEAD /path HTTP/1.1\r\n"), "{seen}");
     }
     assert!(matches!(
@@ -267,7 +267,7 @@ fn agent() {
     for flag in ["-A", "--user-agent"] {
         let (server, target) = served();
         command(&[flag, "osistack", &target]).unwrap();
-        let seen = String::from_utf8(server.captured()).unwrap();
+        let seen = String::from_utf8(server.captured().unwrap()).unwrap();
         assert!(seen.contains("user-agent: osistack\r\n"), "{seen}");
     }
 }

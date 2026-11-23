@@ -62,7 +62,7 @@ fn closing() {
     let server = Server::replying(text(&["HTTP/1.1 204 No Content\r\n\r\n"])).unwrap();
     let port = server.port;
     client().fetch(get(), &server.uri, b"").unwrap();
-    let seen = String::from_utf8(server.captured()).unwrap();
+    let seen = String::from_utf8(server.captured().unwrap()).unwrap();
     let expected =
         format!("GET /path?q=1 HTTP/1.1\r\nhost: 127.0.0.1:{port}\r\nconnection: close\r\n\r\n");
     assert_eq!(seen, expected);
@@ -165,7 +165,7 @@ fn smuggling() {
     let server = Server::replying(text(&["HTTP/1.1 200 OK\r\nContent-Length: 0\r\n\r\n"])).unwrap();
     let method = Method::new("POST").unwrap();
     client().fetch(method, &server.uri, b"payload").unwrap();
-    let seen = String::from_utf8(server.captured())
+    let seen = String::from_utf8(server.captured().unwrap())
         .unwrap()
         .to_ascii_lowercase();
     assert_eq!(seen.matches("content-length:").count(), 1);
@@ -178,7 +178,7 @@ fn loopback() {
     let response = client().fetch(get(), &server.uri, b"").unwrap();
     assert_eq!(response.head.status.get(), 200);
     assert_eq!(response.body, b"body");
-    let seen = server.captured();
+    let seen = server.captured().unwrap();
     assert!(seen.starts_with(b"GET /path?q=1 HTTP/1.1\r\n"));
 }
 
@@ -189,7 +189,7 @@ fn proxy() {
     let response = client().forward(get(), &server.uri, b"").unwrap();
     assert_eq!(response.head.status.get(), 200);
     assert_eq!(response.body, b"body");
-    let seen = String::from_utf8(server.captured()).unwrap();
+    let seen = String::from_utf8(server.captured().unwrap()).unwrap();
     let target = format!("http://127.0.0.1:{port}/path?q=1");
     assert!(
         seen.starts_with(&format!("GET {target} HTTP/1.1\r\n")),
@@ -200,7 +200,7 @@ fn proxy() {
     let response = client().tunnel(&server.uri).unwrap();
     assert_eq!(response.head.status.get(), 200);
     assert!(response.body.is_empty());
-    let seen = String::from_utf8(server.captured()).unwrap();
+    let seen = String::from_utf8(server.captured().unwrap()).unwrap();
     assert!(
         seen.starts_with(&format!("CONNECT 127.0.0.1:{port} HTTP/1.1\r\n")),
         "{seen}"
@@ -222,7 +222,7 @@ fn pooling() {
     let mut pool = Pool::new(client());
     assert_eq!(pool.fetch(get(), &one, b"").unwrap().body, b"a");
     assert_eq!(pool.fetch(get(), &two, b"").unwrap().body, b"b");
-    let seen = String::from_utf8(server.captured()).unwrap();
+    let seen = String::from_utf8(server.captured().unwrap()).unwrap();
     assert!(seen.contains("GET /one HTTP/1.1\r\n"), "{seen}");
     assert!(seen.contains("GET /two HTTP/1.1\r\n"), "{seen}");
     assert!(seen.contains("connection: keep-alive\r\n"), "{seen}");
@@ -237,8 +237,8 @@ fn redirect() {
     let response = client().fetch(get(), &src.uri, b"").unwrap();
     assert_eq!(response.head.status.get(), 200);
     assert_eq!(response.body, b"end");
-    let _ = src.captured();
-    let _ = dest.captured();
+    let _ = src.captured().unwrap();
+    let _ = dest.captured().unwrap();
 }
 
 fn lasting() {
@@ -252,7 +252,7 @@ fn lasting() {
         ..client()
     };
     let outcome = tight.fetch(get(), &server.uri, b"");
-    let _ = server.captured();
+    let _ = server.captured().unwrap();
     assert!(
         matches!(outcome, Err(osistack::Error::Timeout)),
         "{outcome:?}"
@@ -268,7 +268,7 @@ fn phased() {
         ..client()
     };
     let outcome = tight.fetch(get(), &server.uri, b"");
-    let _ = server.captured();
+    let _ = server.captured().unwrap();
     assert!(
         matches!(
             outcome,

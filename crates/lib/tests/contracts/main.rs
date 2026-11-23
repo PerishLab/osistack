@@ -245,6 +245,6 @@ fn subset() {
     let response = command(&["--method", "GET", &target]).unwrap();
     assert_eq!(response.head.status.get(), 200);
     assert_eq!(response.body, b"body");
-    let seen = String::from_utf8(server.captured()).unwrap();
+    let seen = String::from_utf8(server.captured().unwrap()).unwrap();
     assert!(seen.starts_with("GET /path?q=1 HTTP/1.1\r\n"), "{seen}");
 }

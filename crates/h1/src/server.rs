@@ -7,7 +7,7 @@ use std::time::Duration;
 pub struct Server {
     pub uri: Uri,
     pub port: u16,
-    handle: JoinHandle<Vec<u8>>,
+    handle: JoinHandle<io::Result<Vec<u8>>>,
 }
 
 impl Server {
@@ -25,8 +25,8 @@ impl Server {
 
     pub fn holding(parts: Vec<Vec<u8>>) -> io::Result<Self> {
         let (listener, port, uri) = bound()?;
-        let handle = thread::spawn(move || {
-            let (mut peer, _) = listener.accept().unwrap();
+        let handle = thread::spawn(move || -> io::Result<Vec<u8>> {
+            let (mut peer, _) = listener.accept()?;
             let mut seen = Vec::new();
             for part in parts {
                 seen.extend(take(&mut peer));
@@ -34,19 +34,19 @@ impl Server {
                     break;
                 }
             }
-            seen
+            Ok(seen)
         });
         Ok(Self { uri, port, handle })
     }
 
-    pub fn captured(self) -> Vec<u8> {
-        self.handle.join().unwrap()
+    pub fn captured(self) -> io::Result<Vec<u8>> {
+        self.handle.join().map_err(|_| io::Error::other("thread"))?
     }
 
     fn start(parts: Vec<Vec<u8>>, gap: Duration, hold: Duration) -> io::Result<Self> {
         let (listener, port, uri) = bound()?;
-        let handle = thread::spawn(move || {
-            let (mut peer, _) = listener.accept().unwrap();
+        let handle = thread::spawn(move || -> io::Result<Vec<u8>> {
+            let (mut peer, _) = listener.accept()?;
             let seen = take(&mut peer);
             for part in parts {
                 if peer.write_all(&part).is_err() {
@@ -55,7 +55,7 @@ impl Server {
                 thread::sleep(gap);
             }
             thread::sleep(hold);
-            seen
+            Ok(seen)
         });
         Ok(Self { uri, port, handle })
     }
