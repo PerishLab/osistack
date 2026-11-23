@@ -9,6 +9,7 @@ pub enum Error {
     Limit,
     Short,
     Usage,
+    Redirect,
 }
 
 impl fmt::Display for Error {
@@ -21,6 +22,10 @@ impl fmt::Display for Error {
             Self::Limit => write!(out, "response exceeds the configured size limit"),
             Self::Short => write!(out, "connection closed before the response was complete"),
             Self::Usage => write!(out, "invalid fetch arguments"),
+            Self::Redirect => write!(
+                out,
+                "redirect is missing, looped, or exceeded the hop limit"
+            ),
         }
     }
 }

@@ -187,3 +187,37 @@ fn ports() {
     assert_eq!(parse("http://a:65535/").port(), 65535);
     assert_eq!(parse("http://a:1/").port(), 1);
 }
+
+#[test]
+fn joins() {
+    let base = parse("http://a.example:8080/dir/page?q=1");
+    assert_eq!(
+        base.join("http://b.example/x").unwrap().written(),
+        "http://b.example/x"
+    );
+    assert_eq!(
+        base.join("https://b.example/x").unwrap().written(),
+        "https://b.example/x"
+    );
+    assert_eq!(
+        base.join("//b.example/x").unwrap().written(),
+        "http://b.example/x"
+    );
+    assert_eq!(
+        base.join("/abs").unwrap().written(),
+        "http://a.example:8080/abs"
+    );
+    assert_eq!(
+        base.join("peer").unwrap().written(),
+        "http://a.example:8080/dir/peer"
+    );
+    assert_eq!(
+        base.join("?z=2").unwrap().written(),
+        "http://a.example:8080/dir/page?z=2"
+    );
+    assert_eq!(
+        base.join("../up").unwrap().written(),
+        "http://a.example:8080/up"
+    );
+    assert_eq!(base.join(""), Err(Error::Target));
+}

@@ -15,6 +15,7 @@ pub fn table() -> Vec<(&'static str, Check)> {
         ("status-not-error", status as Check),
         ("framing", framing as Check),
         ("smuggling-defense", smuggling as Check),
+        ("redirect-policy", redirect as Check),
         ("loopback-test-server", loopback as Check),
         ("proxy", proxy as Check),
     ]
@@ -220,4 +221,16 @@ fn pooling() {
     assert!(seen.contains("GET /one HTTP/1.1\r\n"), "{seen}");
     assert!(seen.contains("GET /two HTTP/1.1\r\n"), "{seen}");
     assert!(seen.contains("connection: keep-alive\r\n"), "{seen}");
+}
+
+fn redirect() {
+    let dest = Server::replying(text(&["HTTP/1.1 200 OK\r\nContent-Length: 3\r\n\r\nend"]));
+    let location = format!("http://127.0.0.1:{}/dest", dest.port);
+    let head = format!("HTTP/1.1 302 Found\r\nLocation: {location}\r\nContent-Length: 0\r\n\r\n");
+    let src = Server::replying(text(&[&head]));
+    let response = client().fetch(get(), &src.uri, b"").unwrap();
+    assert_eq!(response.head.status.get(), 200);
+    assert_eq!(response.body, b"end");
+    let _ = src.captured();
+    let _ = dest.captured();
 }

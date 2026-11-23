@@ -33,7 +33,7 @@ impl Default for Client {
 
 impl Client {
     pub fn fetch(&self, method: Method, uri: &Uri, body: &[u8]) -> Result<Response, Error> {
-        self.issue(method, uri, body, &uri.target())
+        self.chase(method, uri, body)
     }
 
     pub fn forward(&self, method: Method, uri: &Uri, body: &[u8]) -> Result<Response, Error> {
@@ -100,6 +100,39 @@ impl Client {
             value: Value::new(value)?,
         })
     }
+    fn chase(&self, method: Method, uri: &Uri, body: &[u8]) -> Result<Response, Error> {
+        let mut method = method;
+        let mut target = uri.clone();
+        let mut payload = body.to_vec();
+        let mut seen = Vec::new();
+        for hop in 0..=5 {
+            let key = target.written();
+            if seen.contains(&key) {
+                return Err(Error::Redirect);
+            }
+            seen.push(key);
+            let response = self.issue(method.clone(), &target, &payload, &target.target())?;
+            let status = response.head.status.get();
+            if !matches!(status, 301 | 302 | 303 | 307 | 308) {
+                return Ok(response);
+            }
+            if hop == 5 {
+                return Err(Error::Redirect);
+            }
+            let Some(next) = locate(&target, &response)? else {
+                return Ok(response);
+            };
+            if next.scheme() != Scheme::Http {
+                return Err(Error::Scheme);
+            }
+            if matches!(status, 301..=303) {
+                method = Method::new("GET")?;
+                payload.clear();
+            }
+            target = next;
+        }
+        Err(Error::Redirect)
+    }
 }
 
 fn located(uri: &Uri) -> String {
@@ -119,4 +152,20 @@ fn hostport(uri: &Uri) -> String {
         host.to_owned()
     };
     format!("{host}:{}", uri.port())
+}
+
+fn locate(base: &Uri, response: &Response) -> Result<Option<Uri>, Error> {
+    let Some(value) = response
+        .head
+        .fields
+        .iter()
+        .rfind(|field| field.name.text() == "location")
+    else {
+        return Ok(None);
+    };
+    let text = std::str::from_utf8(value.value.bytes()).map_err(|_| Error::Redirect)?;
+    if text.is_empty() {
+        return Ok(None);
+    }
+    Ok(Some(base.join(text)?))
 }
