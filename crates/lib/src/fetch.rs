@@ -2,6 +2,7 @@ use crate::client::{Client, Response};
 use crate::error::Error;
 use http::{Method, Request, Scheme, Uri};
 use std::fs;
+use std::time::Duration;
 
 pub fn fetch(request: &Request, body: &[u8]) -> Result<Response, Error> {
     if request.scheme() != Scheme::Http {
@@ -28,8 +29,11 @@ pub fn command(args: &[&str]) -> Result<Response, Error> {
     if uri.scheme() != Scheme::Http {
         return Err(Error::Scheme);
     }
-    let request = Request::new(taken.method, &uri, Vec::new())?;
-    let response = fetch(&request, &taken.body)?;
+    let mut client = Client::default();
+    if let Some(total) = taken.total {
+        client.total = total;
+    }
+    let response = client.fetch(taken.method, &uri, &taken.body)?;
     if taken.fail && response.head.status.get() >= 400 {
         return Err(Error::Status);
     }
@@ -45,6 +49,7 @@ struct Parsed {
     body: Vec<u8>,
     output: Option<String>,
     fail: bool,
+    total: Option<Duration>,
 }
 
 impl Parsed {
@@ -60,6 +65,7 @@ impl Parsed {
             body: Vec::new(),
             output: None,
             fail: false,
+            total: None,
         };
         let mut at = 0;
         while at < args.len() {
@@ -89,6 +95,10 @@ impl Parsed {
             "-f" | "--fail" => {
                 self.fail = true;
                 Ok(at + 1)
+            }
+            "--max-time" => {
+                self.total = Some(limit(needed(args, at)?)?);
+                Ok(at + 2)
             }
             "-s" | "--silent" | "-S" | "--show-error" | "-L" | "--location" => Ok(at + 1),
             flag if flag.starts_with('-') && !flag.starts_with("--") => {
@@ -123,4 +133,12 @@ impl Parsed {
 
 fn needed<'a>(args: &[&'a str], at: usize) -> Result<&'a str, Error> {
     args.get(at + 1).copied().ok_or(Error::Usage)
+}
+
+fn limit(text: &str) -> Result<Duration, Error> {
+    let secs: f64 = text.parse().map_err(|_| Error::Usage)?;
+    if !secs.is_finite() || secs < 0.0 {
+        return Err(Error::Usage);
+    }
+    Ok(Duration::from_secs_f64(secs))
 }

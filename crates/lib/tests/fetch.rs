@@ -18,6 +18,15 @@ fn usage() {
     assert!(matches!(command(&["--method"]), Err(Error::Usage)));
     assert!(matches!(command(&["-o"]), Err(Error::Usage)));
     assert!(matches!(command(&["--output"]), Err(Error::Usage)));
+    assert!(matches!(command(&["--max-time"]), Err(Error::Usage)));
+    assert!(matches!(
+        command(&["--max-time", "abc", "http://a/"]),
+        Err(Error::Usage)
+    ));
+    assert!(matches!(
+        command(&["--max-time", "-1", "http://a/"]),
+        Err(Error::Usage)
+    ));
     assert!(matches!(
         command(&["--verbose", "http://a/"]),
         Err(Error::Usage)
@@ -119,4 +128,23 @@ fn located() {
         ]),
         Err(Error::Usage)
     ));
+}
+
+#[test]
+fn capped() {
+    use osistack::h1::Server;
+    use std::time::Duration;
+    let server = Server::silent(Duration::from_secs(5));
+    let target = format!("http://127.0.0.1:{}/slow", server.port);
+    assert!(matches!(
+        command(&["--max-time", "0.2", &target]),
+        Err(Error::Timeout)
+    ));
+    let server = Server::replying(vec![
+        b"HTTP/1.1 200 OK\r\ncontent-length: 2\r\n\r\nok".to_vec(),
+    ]);
+    let target = format!("http://127.0.0.1:{}/fast", server.port);
+    let response = command(&["--max-time", "5", &target]).unwrap();
+    assert_eq!(response.head.status.get(), 200);
+    assert_eq!(response.body, b"ok");
 }
