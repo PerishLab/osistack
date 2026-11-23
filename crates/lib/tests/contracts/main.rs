@@ -66,6 +66,9 @@ fn supported() {
             (Area::Http2, "goaway"),
             (Area::Http2, "ping"),
             (Area::Http2, "hpack"),
+            (Area::Http2, "concurrent-streams"),
+            (Area::Http2, "connection-reuse"),
+            (Area::Http2, "push-disabled"),
             (Area::Quic, "retry-integrity"),
             (Area::Quic, "version-negotiation"),
             (Area::Quic, "stream-flow-control"),
@@ -167,9 +170,9 @@ fn unique() {
             + profile.count(State::Unverified),
         profile.capabilities.len()
     );
-    assert_eq!(profile.count(State::Supported), 57);
+    assert_eq!(profile.count(State::Supported), 60);
     assert_eq!(profile.count(State::Excluded), 32);
-    assert_eq!(profile.count(State::Unverified), 14);
+    assert_eq!(profile.count(State::Unverified), 11);
 }
 
 #[test]

@@ -1,5 +1,8 @@
 use crate::behaviour::Check;
-use h2::{Codec, Connection, Decoder, Encoder, Error, Frame, Header, Setting, Settings};
+use h2::{
+    Close, Code, Codec, Connection, Decoder, Encoder, Error, Fault, Frame, Header, Misuse, PREFACE,
+    Setting, Settings, State,
+};
 
 pub fn table() -> Vec<(&'static str, Check)> {
     vec![
@@ -12,6 +15,9 @@ pub fn table() -> Vec<(&'static str, Check)> {
         ("reset-stream", reset as Check),
         ("goaway", goaway as Check),
         ("ping", ping as Check),
+        ("concurrent-streams", limited as Check),
+        ("connection-reuse", reused as Check),
+        ("push-disabled", disabled as Check),
     ]
 }
 
@@ -182,4 +188,64 @@ fn hpack() {
         assert_eq!((block.stream, block.fin, block.fields), (1, fin, answer()));
     }
     assert_eq!(client.decoder().dynamic(), source.dynamic());
+}
+
+fn limited() {
+    let (mut client, _) = Connection::start(Settings::default());
+    client
+        .receive(&Frame::Settings {
+            ack: false,
+            list: vec![Setting { id: 3, value: 1 }],
+        })
+        .unwrap();
+    client
+        .receive(&Frame::Settings {
+            ack: true,
+            list: Vec::new(),
+        })
+        .unwrap();
+    client.headers(1, &request(), true).unwrap();
+    assert_eq!(client.headers(3, &request(), true), Err(Misuse::Limit));
+}
+
+fn reused() {
+    let mut client = ready();
+    client.headers(1, &request(), true).unwrap();
+    let block = Encoder::new(4096, true).encode(&answer());
+    client
+        .receive(&Frame::Headers {
+            stream: 1,
+            fin: true,
+            complete: true,
+            pad: None,
+            priority: None,
+            block,
+        })
+        .unwrap();
+    assert_eq!(client.streams().state(1), State::Closed(Close::Finished));
+    client.headers(3, &request(), true).unwrap();
+    assert_eq!(client.streams().active(), 1);
+}
+
+fn disabled() {
+    let (mut client, bytes) = Connection::start(Settings::default());
+    let (frame, _) = Codec::default()
+        .decode(&bytes[PREFACE.len()..])
+        .unwrap()
+        .unwrap();
+    match frame {
+        Frame::Settings { ack: false, list } => {
+            assert!(list.contains(&Setting { id: 2, value: 0 }));
+        }
+        other => panic!("{other:?}"),
+    }
+    assert_eq!(
+        client.receive(&Frame::Settings {
+            ack: false,
+            list: vec![Setting { id: 2, value: 1 }],
+        }),
+        Err(Fault::Connection {
+            code: Code::Protocol,
+        })
+    );
 }
