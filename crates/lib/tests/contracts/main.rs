@@ -79,6 +79,7 @@ fn supported() {
             (Area::Quic, "path-validation"),
             (Area::Quic, "key-update"),
             (Area::Quic, "newreno"),
+            (Area::Quic, "ecn"),
             (Area::Http3, "control-stream"),
             (Area::Http3, "settings"),
             (Area::Http3, "headers"),
@@ -147,7 +148,6 @@ fn pending() {
         (Area::Http1, "phase-timeout"),
         (Area::Quic, "v1"),
         (Area::Quic, "retry-handshake"),
-        (Area::Quic, "ecn"),
         (Area::Quic, "gso"),
         (Area::Cli, "curl-subset"),
     ];
@@ -170,9 +170,9 @@ fn unique() {
             + profile.count(State::Unverified),
         profile.capabilities.len()
     );
-    assert_eq!(profile.count(State::Supported), 61);
+    assert_eq!(profile.count(State::Supported), 62);
     assert_eq!(profile.count(State::Excluded), 32);
-    assert_eq!(profile.count(State::Unverified), 10);
+    assert_eq!(profile.count(State::Unverified), 9);
 }
 
 #[test]
