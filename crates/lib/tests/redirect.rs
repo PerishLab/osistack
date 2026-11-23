@@ -18,12 +18,12 @@ fn post() -> Method {
 
 #[test]
 fn posted() {
-    let dest = Server::replying(text(&["HTTP/1.1 200 OK\r\nContent-Length: 2\r\n\r\nok"]));
+    let dest = Server::replying(text(&["HTTP/1.1 200 OK\r\nContent-Length: 2\r\n\r\nok"])).unwrap();
     let location = format!("http://127.0.0.1:{}/keep", dest.port);
     let head = format!(
         "HTTP/1.1 307 Temporary Redirect\r\nLocation: {location}\r\nContent-Length: 0\r\n\r\n"
     );
-    let src = Server::replying(text(&[&head]));
+    let src = Server::replying(text(&[&head])).unwrap();
     let response = client().fetch(post(), &src.uri, b"hi").unwrap();
     assert_eq!(response.head.status.get(), 200);
     let seen = String::from_utf8(dest.captured()).unwrap();
@@ -34,10 +34,10 @@ fn posted() {
 
 #[test]
 fn rewritten() {
-    let dest = Server::replying(text(&["HTTP/1.1 200 OK\r\nContent-Length: 0\r\n\r\n"]));
+    let dest = Server::replying(text(&["HTTP/1.1 200 OK\r\nContent-Length: 0\r\n\r\n"])).unwrap();
     let location = format!("http://127.0.0.1:{}/next", dest.port);
     let head = format!("HTTP/1.1 302 Found\r\nLocation: {location}\r\nContent-Length: 0\r\n\r\n");
-    let src = Server::replying(text(&[&head]));
+    let src = Server::replying(text(&[&head])).unwrap();
     let response = client().fetch(post(), &src.uri, b"hi").unwrap();
     assert_eq!(response.head.status.get(), 200);
     let seen = String::from_utf8(dest.captured()).unwrap();
@@ -49,7 +49,7 @@ fn rewritten() {
 #[test]
 fn https() {
     let head = "HTTP/1.1 302 Found\r\nLocation: https://127.0.0.1:1/\r\nContent-Length: 0\r\n\r\n";
-    let src = Server::replying(text(&[head]));
+    let src = Server::replying(text(&[head])).unwrap();
     let outcome = client().fetch(get(), &src.uri, b"");
     let _ = src.captured();
     assert!(matches!(outcome, Err(Error::Socket(_))), "{outcome:?}");
@@ -57,7 +57,7 @@ fn https() {
 
 #[test]
 fn missing() {
-    let src = Server::replying(text(&["HTTP/1.1 302 Found\r\nContent-Length: 0\r\n\r\n"]));
+    let src = Server::replying(text(&["HTTP/1.1 302 Found\r\nContent-Length: 0\r\n\r\n"])).unwrap();
     let response = client().fetch(get(), &src.uri, b"").unwrap();
     let _ = src.captured();
     assert_eq!(response.head.status.get(), 302);

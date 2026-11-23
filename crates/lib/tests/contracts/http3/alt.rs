@@ -11,7 +11,7 @@ pub fn table() -> Vec<(&'static str, Check)> {
 
 fn fetched(field: &str) -> (Origin, String) {
     let head = format!("HTTP/1.1 200 OK\r\nContent-Length: 2\r\nAlt-Svc: {field}\r\n\r\nok");
-    let server = Server::replying(text(&[&head]));
+    let server = Server::replying(text(&[&head])).unwrap();
     let get = Method::new("GET").unwrap();
     let response = client().fetch(get, &server.uri, b"").unwrap();
     let values = response.head.values("alt-svc");

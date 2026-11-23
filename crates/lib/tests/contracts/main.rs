@@ -239,7 +239,8 @@ fn subset() {
     use osistack::command;
     let server = Server::replying(vec![
         b"HTTP/1.1 200 OK\r\nContent-Length: 4\r\n\r\nbody".to_vec(),
-    ]);
+    ])
+    .unwrap();
     let target = format!("http://127.0.0.1:{}{}", server.port, "/path?q=1");
     let response = command(&["--method", "GET", &target]).unwrap();
     assert_eq!(response.head.status.get(), 200);

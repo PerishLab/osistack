@@ -1,13 +1,14 @@
 use osistack::http::{Method, Request, Uri};
 use osistack::{Client, Error, applied, command, driven, fetch};
 
-fn served() -> (osistack::h1::Server, String) {
-    use osistack::h1::Server;
-    let server = Server::replying(vec![
-        b"HTTP/1.1 200 OK\r\ncontent-length: 2\r\n\r\nok".to_vec(),
-    ]);
-    let target = format!("http://127.0.0.1:{}/path", server.port);
+fn hosted(reply: &[u8], path: &str) -> (osistack::h1::Server, String) {
+    let server = osistack::h1::Server::replying(vec![reply.to_vec()]).unwrap();
+    let target = format!("http://127.0.0.1:{}{path}", server.port);
     (server, target)
+}
+
+fn served() -> (osistack::h1::Server, String) {
+    hosted(b"HTTP/1.1 200 OK\r\ncontent-length: 2\r\n\r\nok", "/path")
 }
 
 #[test]
@@ -61,11 +62,10 @@ fn usage() {
 
 #[test]
 fn posting() {
-    use osistack::h1::Server;
-    let server = Server::replying(vec![
-        b"HTTP/1.1 201 Created\r\ncontent-length: 2\r\n\r\nok".to_vec(),
-    ]);
-    let target = format!("http://127.0.0.1:{}/upload", server.port);
+    let (server, target) = hosted(
+        b"HTTP/1.1 201 Created\r\ncontent-length: 2\r\n\r\nok",
+        "/upload",
+    );
     let response = command(&["fetch", "--method", "POST", "--data", "hi", &target]).unwrap();
     assert_eq!(response.head.status.get(), 201);
     assert_eq!(response.body, b"ok");
@@ -90,37 +90,29 @@ fn output() {
 
 #[test]
 fn failing() {
-    use osistack::h1::Server;
     let miss = b"HTTP/1.1 404 Not Found\r\ncontent-length: 0\r\n\r\n";
-    let server = Server::replying(vec![miss.to_vec()]);
-    let target = format!("http://127.0.0.1:{}/missing", server.port);
+    let (_, target) = hosted(miss, "/missing");
     assert_eq!(command(&[&target]).unwrap().head.status.get(), 404);
-    let server = Server::replying(vec![miss.to_vec()]);
-    let target = format!("http://127.0.0.1:{}/missing", server.port);
+    let (_, target) = hosted(miss, "/missing");
     assert!(matches!(command(&["-f", &target]), Err(Error::Status)));
-    let server = Server::replying(vec![
-        b"HTTP/1.1 500 Internal Server Error\r\ncontent-length: 0\r\n\r\n".to_vec(),
-    ]);
-    let target = format!("http://127.0.0.1:{}/fail", server.port);
+    let error = b"HTTP/1.1 500 Internal Server Error\r\ncontent-length: 0\r\n\r\n";
+    let (_, target) = hosted(error, "/fail");
     assert!(matches!(command(&["--fail", &target]), Err(Error::Status)));
 }
 
 #[test]
 fn located() {
-    use osistack::h1::Server;
     let (dest, _) = served();
     let location = format!("http://127.0.0.1:{}/next", dest.port);
     let head = format!("HTTP/1.1 302 Found\r\nLocation: {location}\r\nContent-Length: 0\r\n\r\n");
-    let src = Server::replying(vec![head.into_bytes()]);
-    let target = format!("http://127.0.0.1:{}/old", src.port);
+    let (src, target) = hosted(head.as_bytes(), "/old");
     let response = command(&["-fsSL", &target]).unwrap();
     assert_eq!(response.body, b"ok");
     let _ = (src.captured(), dest.captured());
     let head =
         b"HTTP/1.1 302 Found\r\nLocation: http://127.0.0.1:9/next\r\nContent-Length: 0\r\n\r\n"
             .to_vec();
-    let src = Server::replying(vec![head]);
-    let target = format!("http://127.0.0.1:{}/old", src.port);
+    let (_, target) = hosted(&head, "/old");
     let response = command(&[&target]).unwrap();
     assert_eq!(response.head.status.get(), 302);
     assert!(matches!(command(&["-fsSL"]), Err(Error::Usage)));
@@ -136,9 +128,8 @@ fn located() {
 
 #[test]
 fn capped() {
-    use osistack::h1::Server;
     use std::time::Duration;
-    let server = Server::silent(Duration::from_secs(5));
+    let server = osistack::h1::Server::silent(Duration::from_secs(5)).unwrap();
     let target = format!("http://127.0.0.1:{}/slow", server.port);
     assert!(matches!(
         command(&["--max-time", "0.2", &target]),
@@ -151,15 +142,14 @@ fn capped() {
 
 #[test]
 fn written() {
-    use osistack::h1::Server;
     let (_server, target) = served();
     let outcome = applied(&["-w", "%{http_code} %{size_download}", &target]).unwrap();
     assert_eq!(outcome.response.body, b"ok");
     assert_eq!(outcome.written.as_deref(), Some("200 2"));
-    let server = Server::replying(vec![
-        b"HTTP/1.1 201 Created\r\ncontent-length: 3\r\n\r\nyes".to_vec(),
-    ]);
-    let target = format!("http://127.0.0.1:{}/file", server.port);
+    let (_, target) = hosted(
+        b"HTTP/1.1 201 Created\r\ncontent-length: 3\r\n\r\nyes",
+        "/file",
+    );
     let outcome = applied(&["--write-out", "code=%{http_code}", &target]).unwrap();
     assert_eq!(outcome.response.body, b"yes");
     assert_eq!(outcome.written.as_deref(), Some("code=201"));
@@ -225,10 +215,7 @@ fn skipping() {
 
 #[test]
 fn proxied() {
-    use osistack::h1::Server;
-    let proxy = Server::replying(vec![
-        b"HTTP/1.1 200 OK\r\ncontent-length: 5\r\n\r\nproxy".to_vec(),
-    ]);
+    let (proxy, _) = hosted(b"HTTP/1.1 200 OK\r\ncontent-length: 5\r\n\r\nproxy", "/");
     let hop = format!("http://127.0.0.1:{}", proxy.port);
     let response = command(&["--proxy", &hop, "http://127.0.0.1:9/path"]).unwrap();
     assert_eq!(response.body, b"proxy");
@@ -246,12 +233,8 @@ fn proxied() {
 
 #[test]
 fn heading() {
-    use osistack::h1::Server;
     for flag in ["-I", "--head"] {
-        let server = Server::replying(vec![
-            b"HTTP/1.1 200 OK\r\ncontent-length: 0\r\n\r\n".to_vec(),
-        ]);
-        let target = format!("http://127.0.0.1:{}/path", server.port);
+        let (server, target) = hosted(b"HTTP/1.1 200 OK\r\ncontent-length: 0\r\n\r\n", "/path");
         command(&[flag, &target]).unwrap();
         let seen = String::from_utf8(server.captured()).unwrap();
         assert!(seen.starts_with("HEAD /path HTTP/1.1\r\n"), "{seen}");

@@ -24,7 +24,7 @@ fn refused() {
 
 #[test]
 fn silent() {
-    let server = Server::silent(Duration::from_millis(600));
+    let server = Server::silent(Duration::from_millis(600)).unwrap();
     let patient = Client {
         read: Duration::from_millis(150),
         ..client()
@@ -45,7 +45,8 @@ fn scheme() {
 
 #[test]
 fn oversize() {
-    let server = Server::replying(text(&["HTTP/1.1 200 OK\r\nX-Long: ", &"a".repeat(300)]));
+    let server =
+        Server::replying(text(&["HTTP/1.1 200 OK\r\nX-Long: ", &"a".repeat(300)])).unwrap();
     let small = Client {
         head: 64,
         ..client()
@@ -56,7 +57,8 @@ fn oversize() {
 
 #[test]
 fn heavy() {
-    let server = Server::replying(text(&["HTTP/1.1 200 OK\r\nContent-Length: 100\r\n\r\n"]));
+    let server =
+        Server::replying(text(&["HTTP/1.1 200 OK\r\nContent-Length: 100\r\n\r\n"])).unwrap();
     let small = Client {
         body: 10,
         ..client()
@@ -68,7 +70,7 @@ fn heavy() {
 #[test]
 fn endless() {
     let parts = text(&["HTTP/1.0 200 OK\r\n\r\n", &"x".repeat(100)]);
-    let server = Server::replying(parts);
+    let server = Server::replying(parts).unwrap();
     let small = Client {
         body: 10,
         ..client()
@@ -83,7 +85,7 @@ fn pieces() {
         "HTTP/1.1 200 OK\r\nTransfer-Encoding: chunked\r\n\r\n",
         &"1\r\nx\r\n".repeat(50),
     ]);
-    let server = Server::replying(parts);
+    let server = Server::replying(parts).unwrap();
     let small = Client {
         body: 20,
         ..client()
@@ -97,7 +99,7 @@ fn bulky() {
     let body = "a".repeat(100);
     let reply =
         format!("HTTP/1.1 200 OK\r\nTransfer-Encoding: chunked\r\n\r\n64\r\n{body}\r\n0\r\n\r\n");
-    let server = Server::replying(text(&[&reply]));
+    let server = Server::replying(text(&[&reply])).unwrap();
     let small = Client {
         body: 10,
         ..client()
@@ -108,14 +110,15 @@ fn bulky() {
 
 #[test]
 fn early() {
-    let server = Server::replying(text(&["HTTP/1.1 200 OK\r\nContent-Length: 10\r\n\r\nabc"]));
+    let server =
+        Server::replying(text(&["HTTP/1.1 200 OK\r\nContent-Length: 10\r\n\r\nabc"])).unwrap();
     let outcome = client().fetch(get(), &server.uri, b"");
     assert!(matches!(outcome, Err(Error::Short)));
 }
 
 #[test]
 fn headless() {
-    let server = Server::replying(text(&["HTTP/1.1 200 OK\r\nContent-"]));
+    let server = Server::replying(text(&["HTTP/1.1 200 OK\r\nContent-"])).unwrap();
     let outcome = client().fetch(get(), &server.uri, b"");
     assert!(matches!(outcome, Err(Error::Short)));
 }
@@ -124,7 +127,8 @@ fn headless() {
 fn truncated() {
     let server = Server::replying(text(&[
         "HTTP/1.1 200 OK\r\nTransfer-Encoding: chunked\r\n\r\n5\r\nhel",
-    ]));
+    ]))
+    .unwrap();
     let outcome = client().fetch(get(), &server.uri, b"");
     assert!(matches!(outcome, Err(Error::Short)));
 }
@@ -133,14 +137,15 @@ fn truncated() {
 fn ambiguous() {
     let server = Server::replying(text(&[
         "HTTP/1.1 200 OK\r\nContent-Length: 3\r\nTransfer-Encoding: chunked\r\n\r\nabc",
-    ]));
+    ]))
+    .unwrap();
     let outcome = client().fetch(get(), &server.uri, b"");
     assert!(matches!(outcome, Err(Error::Frame(h1::Error::Ambiguous))));
 }
 
 #[test]
 fn malformed() {
-    let server = Server::replying(text(&["NOT HTTP\r\n\r\n"]));
+    let server = Server::replying(text(&["NOT HTTP\r\n\r\n"])).unwrap();
     let outcome = client().fetch(get(), &server.uri, b"");
     assert!(matches!(outcome, Err(Error::Frame(_))));
 }
