@@ -6,10 +6,10 @@ use crate::schedule::{Schedule, Traffic};
 use crypto::{Hash, Running};
 
 pub struct Accepted {
-    reply: Reply,
-    digest: Running,
-    client: Traffic,
-    server: Traffic,
+    pub(super) reply: Reply,
+    pub(super) digest: Running,
+    pub(super) client: Traffic,
+    pub(super) server: Traffic,
 }
 
 impl Accepted {
