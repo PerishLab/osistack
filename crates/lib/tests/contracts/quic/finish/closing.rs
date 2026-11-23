@@ -1,5 +1,5 @@
 use super::remote::session;
-use quic::{Control, Frame, Number, Role, Short, Streams};
+use quic::{Control, Frame, Idle, Number, Role, Short, Streams};
 use std::net::UdpSocket;
 
 fn pack(keys: &quic::Keys, dcid: &[u8], payload: &[u8]) -> Vec<u8> {
@@ -55,4 +55,30 @@ fn loopback() {
         (*code, *frame, reason.as_slice()),
         (0, 0, b"done".as_slice())
     );
+}
+
+#[test]
+fn idle() {
+    let session = session();
+    let mut client = Streams::new(Role::Client, 8, 64 * 1024, 64 * 1024);
+    let mut server = Streams::new(Role::Server, 8, 64 * 1024, 64 * 1024);
+    let id = client.open().unwrap();
+    assert_eq!(client.write(id, b"ping").unwrap(), 4);
+    client.finish(id).unwrap();
+    let stream = client.next(id, 1200).unwrap().unwrap();
+    session
+        .near
+        .send(&pack(
+            &session.applied.client,
+            &session.server,
+            &Frame::join(&[stream]).unwrap(),
+        ))
+        .unwrap();
+    let frames = take(&session.peer, &session.applied.client, session.server.len());
+    server.ingest(&frames).unwrap();
+    assert_eq!(server.read(id, 16).unwrap(), b"ping");
+    let mut idle = Idle::new(0, 1, 1);
+    idle.receive(10);
+    assert!(!idle.expired(10, 0));
+    assert!(idle.expired(1_010, 0));
 }
