@@ -150,3 +150,16 @@ fn display() {
     let outcome = Error::Short.to_string();
     assert!(outcome.contains("closed"));
 }
+
+#[test]
+fn wording() {
+    use std::error::Error as Std;
+    let frame = Error::Frame(h1::Error::Size);
+    let text = frame.to_string();
+    assert!(text.contains(&h1::Error::Size.to_string()));
+    assert!(!text.contains("Size"));
+    assert_eq!(
+        frame.source().map(ToString::to_string),
+        Some(h1::Error::Size.to_string())
+    );
+}

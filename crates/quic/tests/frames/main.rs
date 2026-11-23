@@ -1,6 +1,7 @@
 mod acks;
 mod corpus;
 mod data;
+mod display;
 mod each;
 mod reject;
 mod support;

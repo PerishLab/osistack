@@ -1,4 +1,5 @@
 mod corpus;
+mod display;
 mod framing;
 mod hellos;
 mod prefixes;
