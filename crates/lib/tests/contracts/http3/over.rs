@@ -1,5 +1,5 @@
 use crate::quic::finish::session;
-use h3::{Call, Control, Decoder, Encoder, Event, Field, Request, Settings};
+use h3::{Call, Control, Decoder, Encoder, Event, Field, Notice, Request, Settings};
 use quic::{Frame as Packet, Number, Role, Short, Streams};
 use std::net::UdpSocket;
 
@@ -147,4 +147,106 @@ fn loopback() {
     assert_eq!(status.unwrap(), replied());
     assert_eq!(data, b"ok");
     assert_eq!(call.end(), Ok(Event::End));
+}
+
+#[test]
+fn farewell() {
+    let session = session();
+    let mut call = Call::new(LIMIT);
+    let control = Call::control(&Settings::default()).unwrap();
+    let headers = call.headers(&asked()).unwrap();
+    call.finish().unwrap();
+    let mut client = Streams::new(Role::Client, 8, 64 * 1024, 64 * 1024);
+    let id = client.open().unwrap();
+    assert_eq!(client.write(id, &headers).unwrap(), headers.len());
+    client.finish(id).unwrap();
+    let request = client.next(id, 1200).unwrap().unwrap();
+    emit(
+        &session.near,
+        &session.applied.client,
+        &session.server,
+        &[stream(2, &control, true), request],
+    );
+    let frames = take(&session.peer, &session.applied.client, session.server.len());
+    let mut server = Streams::new(Role::Server, 8, 64 * 1024, 64 * 1024);
+    server.ingest(&frames).unwrap();
+    let mut incoming = Request::new(LIMIT);
+    let events = incoming.feed(&server.read(0, LIMIT).unwrap()).unwrap();
+    let Event::Headers(block) = &events[0] else {
+        panic!("headers");
+    };
+    assert_eq!(Decoder::new(0).decode(block).unwrap(), asked());
+    let mut reply = Request::new(LIMIT);
+    let mut payload = reply
+        .headers(&Encoder::new(true).encode(&replied()))
+        .unwrap();
+    payload.extend(reply.data(b"ok").unwrap());
+    reply.finish().unwrap();
+    let settings = Call::control(&Settings::default()).unwrap();
+    emit(
+        &session.peer,
+        &session.applied.server,
+        &session.client,
+        &[stream(3, &settings, false), stream(0, &payload, true)],
+    );
+    let frames = take(&session.near, &session.applied.server, session.client.len());
+    client.ingest(&frames).unwrap();
+    let events = call.feed(&client.read(0, LIMIT).unwrap()).unwrap();
+    let mut status = None;
+    let mut data = Vec::new();
+    for event in events {
+        match event {
+            Event::Headers(block) => {
+                status = Some(Decoder::new(0).decode(&block).unwrap());
+            }
+            Event::Data(part) => data.extend(part),
+            _ => {}
+        }
+    }
+    assert_eq!(status.unwrap(), replied());
+    assert_eq!(data, b"ok");
+    assert_eq!(call.end(), Ok(Event::End));
+    let preface = client.read(3, LIMIT).unwrap();
+    assert_eq!(preface[0], 0x00);
+    let mut inbound = Control::new(LIMIT);
+    let notices = inbound.feed(&preface[1..]).unwrap();
+    assert!(
+        notices
+            .iter()
+            .any(|notice| matches!(notice, Notice::Settings(_))),
+        "{notices:?}"
+    );
+    let goaway = h3::Frame::Goaway(0).encode().unwrap();
+    let next = Packet::Stream(quic::Stream {
+        id: 3,
+        offset: settings.len() as u64,
+        data: goaway,
+        fin: true,
+        sized: true,
+    });
+    let written = Number::new(1, None).unwrap();
+    let short = Short {
+        spin: false,
+        phase: false,
+        dcid: session.client.clone(),
+        offset: 0,
+    };
+    session
+        .peer
+        .send(
+            &session
+                .applied
+                .server
+                .protect(
+                    1,
+                    &short.write(&written).unwrap(),
+                    &Packet::join(&[next]).unwrap(),
+                )
+                .unwrap(),
+        )
+        .unwrap();
+    let frames = take(&session.near, &session.applied.server, session.client.len());
+    client.ingest(&frames).unwrap();
+    let notices = inbound.feed(&client.read(3, LIMIT).unwrap()).unwrap();
+    assert_eq!(notices, vec![Notice::Goaway(0)]);
 }
