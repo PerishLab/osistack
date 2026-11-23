@@ -168,10 +168,18 @@ impl Accepted {
         now: Time,
         records: &[Record],
     ) -> Result<Verified, Error> {
+        self.checked(host, roots, now, &opened(self, records)?)
+    }
+
+    pub fn checked(
+        &self,
+        host: &str,
+        roots: &Roots,
+        now: Time,
+        flight: &[u8],
+    ) -> Result<Verified, Error> {
         let host = Host::parse(host).map_err(|_| Error::Value)?;
-        let payload = opened(self, records)?;
-        let rest = payload.as_slice();
-        let mut data = rest;
+        let mut data = flight;
         let mut digest = self.digest.clone();
         let extensions = pull(&mut data)?;
         need(&extensions, Kind::Extensions)?;
