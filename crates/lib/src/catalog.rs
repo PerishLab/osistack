@@ -21,7 +21,7 @@ pub fn table() -> Vec<Capability> {
         Capability::new(Area::Http1, "total-timeout", State::Unverified),
         Capability::new(Area::Http1, "phase-timeout", State::Unverified),
         Capability::new(Area::Http1, "status-not-error", State::Supported),
-        Capability::new(Area::Http1, "loopback-test-server", State::Unverified),
+        Capability::new(Area::Http1, "loopback-test-server", State::Supported),
         Capability::new(Area::Http1, "proxy", State::Unverified),
         Capability::new(Area::Http1, "pipelining", State::Excluded),
         Capability::new(Area::Http1, "upgrade", State::Excluded),
