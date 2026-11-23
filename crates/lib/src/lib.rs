@@ -1,5 +1,6 @@
 mod catalog;
 mod client;
+mod clock;
 mod error;
 mod exchange;
 mod fetch;

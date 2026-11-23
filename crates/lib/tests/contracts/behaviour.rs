@@ -16,6 +16,7 @@ pub fn table() -> Vec<(&'static str, Check)> {
         ("framing", framing as Check),
         ("smuggling-defense", smuggling as Check),
         ("redirect-policy", redirect as Check),
+        ("total-timeout", lasting as Check),
         ("loopback-test-server", loopback as Check),
         ("proxy", proxy as Check),
     ]
@@ -233,4 +234,22 @@ fn redirect() {
     assert_eq!(response.body, b"end");
     let _ = src.captured();
     let _ = dest.captured();
+}
+
+fn lasting() {
+    use std::time::Duration;
+    let server = Server::silent(Duration::from_millis(600));
+    let tight = osistack::Client {
+        total: Duration::from_millis(80),
+        connect: Duration::from_secs(5),
+        read: Duration::from_secs(5),
+        write: Duration::from_secs(5),
+        ..client()
+    };
+    let outcome = tight.fetch(get(), &server.uri, b"");
+    let _ = server.captured();
+    assert!(
+        matches!(outcome, Err(osistack::Error::Timeout)),
+        "{outcome:?}"
+    );
 }

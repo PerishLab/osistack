@@ -10,6 +10,7 @@ pub enum Error {
     Short,
     Usage,
     Redirect,
+    Timeout,
 }
 
 impl fmt::Display for Error {
@@ -26,6 +27,7 @@ impl fmt::Display for Error {
                 out,
                 "redirect is missing, looped, or exceeded the hop limit"
             ),
+            Self::Timeout => write!(out, "the request exceeded the total time limit"),
         }
     }
 }

@@ -2,24 +2,38 @@ use crate::client::Client;
 use crate::error::Error;
 use h1::{Chunked, Framing, Head};
 use socket::Stream;
+use std::time::{Duration, Instant};
 
 pub struct Exchange<'a> {
     stream: Stream,
     client: &'a Client,
     data: Vec<u8>,
+    deadline: Instant,
 }
 
 impl<'a> Exchange<'a> {
     pub fn open(client: &'a Client, host: &str, port: u16) -> Result<Self, Error> {
-        let stream = Stream::connect(host, port, client.connect)?;
-        Ok(Self::resume(client, stream, Vec::new()))
+        Self::until(client, host, port, Instant::now() + client.total)
     }
 
-    pub fn resume(client: &'a Client, stream: Stream, data: Vec<u8>) -> Self {
+    pub fn until(
+        client: &'a Client,
+        host: &str,
+        port: u16,
+        deadline: Instant,
+    ) -> Result<Self, Error> {
+        let timeout = budget(deadline, client.connect)?;
+        let stream = Stream::connect(host, port, timeout)
+            .map_err(|error| stamp(error, deadline, client.connect))?;
+        Ok(Self::resume(client, stream, Vec::new(), deadline))
+    }
+
+    pub fn resume(client: &'a Client, stream: Stream, data: Vec<u8>, deadline: Instant) -> Self {
         Self {
             stream,
             client,
             data,
+            deadline,
         }
     }
 
@@ -27,10 +41,21 @@ impl<'a> Exchange<'a> {
         (self.stream, self.data)
     }
 
+    fn limit(&self, phase: Duration) -> Result<Duration, Error> {
+        budget(self.deadline, phase)
+    }
+
+    fn wrap(&self, error: socket::Error, phase: Duration) -> Error {
+        stamp(error, self.deadline, phase)
+    }
+
     pub fn send(&mut self, bytes: &[u8]) -> Result<(), Error> {
         let mut sent = 0;
         while sent < bytes.len() {
-            let count = self.stream.write(&bytes[sent..], Some(self.client.write))?;
+            let count = self
+                .stream
+                .write(&bytes[sent..], Some(self.limit(self.client.write)?))
+                .map_err(|error| self.wrap(error, self.client.write))?;
             if count == 0 {
                 return Err(Error::Short);
             }
@@ -76,7 +101,10 @@ impl<'a> Exchange<'a> {
 
     fn pull(&mut self) -> Result<usize, Error> {
         let mut chunk = [0u8; 8192];
-        let count = self.stream.read(&mut chunk, Some(self.client.read))?;
+        let count = self
+            .stream
+            .read(&mut chunk, Some(self.limit(self.client.read)?))
+            .map_err(|error| self.wrap(error, self.client.read))?;
         self.data.extend_from_slice(&chunk[..count]);
         Ok(count)
     }
@@ -121,5 +149,24 @@ impl<'a> Exchange<'a> {
                 return Ok(std::mem::take(&mut self.data));
             }
         }
+    }
+}
+
+fn budget(deadline: Instant, phase: Duration) -> Result<Duration, Error> {
+    let left = deadline
+        .checked_duration_since(Instant::now())
+        .filter(|left| *left > Duration::ZERO)
+        .ok_or(Error::Timeout)?;
+    Ok(left.min(phase))
+}
+
+fn stamp(error: socket::Error, deadline: Instant, phase: Duration) -> Error {
+    let capped = deadline
+        .checked_duration_since(Instant::now())
+        .is_none_or(|left| left < phase);
+    if matches!(error, socket::Error::Timeout(_)) && capped {
+        Error::Timeout
+    } else {
+        Error::Socket(error)
     }
 }
