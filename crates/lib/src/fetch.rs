@@ -33,12 +33,15 @@ pub fn command(args: &[&str]) -> Result<Response, Error> {
 }
 
 pub fn applied(args: &[&str]) -> Result<Applied, Error> {
+    driven(Client::default(), args)
+}
+
+pub fn driven(mut client: Client, args: &[&str]) -> Result<Applied, Error> {
     let taken = Parsed::read(args)?;
     let uri = Uri::parse(&taken.target)?;
-    if uri.scheme() != Scheme::Http {
+    if uri.scheme() != Scheme::Http && uri.scheme() != Scheme::Https {
         return Err(Error::Scheme);
     }
-    let mut client = Client::default();
     if let Some(total) = taken.total {
         client.total = total;
     }

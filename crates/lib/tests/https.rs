@@ -7,7 +7,7 @@ mod sign;
 
 use crypto::{Aead, Group, Hash};
 use osistack::http::{Method, Uri};
-use osistack::{Client, Pool, Roots};
+use osistack::{Client, Pool, Roots, driven};
 use peer::{Waiting, answer, frame, mint};
 use std::io::{Read, Write};
 use std::net::{TcpListener, TcpStream};
@@ -143,6 +143,17 @@ fn serve(mut stream: TcpStream) -> Vec<u8> {
     seen
 }
 
+fn local(roots: Roots) -> Client {
+    let wait = Duration::from_secs(5);
+    Client {
+        roots,
+        connect: wait,
+        read: wait,
+        write: wait,
+        ..Client::default()
+    }
+}
+
 #[test]
 fn fetch() {
     let held = mint("localhost");
@@ -152,13 +163,7 @@ fn fetch() {
         let (stream, _) = listener.accept().unwrap();
         serve(stream)
     });
-    let client = Client {
-        roots: held.roots,
-        connect: Duration::from_secs(5),
-        read: Duration::from_secs(5),
-        write: Duration::from_secs(5),
-        ..Client::default()
-    };
+    let client = local(held.roots);
     let uri = Uri::parse(&format!("https://localhost:{port}/path")).unwrap();
     let response = client.fetch(get(), &uri, b"").unwrap();
     assert_eq!(response.head.status.get(), 200);
@@ -180,13 +185,7 @@ fn posting() {
         let (stream, _) = listener.accept().unwrap();
         serve(stream)
     });
-    let client = Client {
-        roots: held.roots,
-        connect: Duration::from_secs(5),
-        read: Duration::from_secs(5),
-        write: Duration::from_secs(5),
-        ..Client::default()
-    };
+    let client = local(held.roots);
     let uri = Uri::parse(&format!("https://localhost:{port}/path")).unwrap();
     let method = Method::new("POST").unwrap();
     let response = client.fetch(method, &uri, b"hello").unwrap();
@@ -210,13 +209,7 @@ fn roots() {
         let (stream, _) = listener.accept().unwrap();
         let _ = serve(stream);
     });
-    let client = Client {
-        roots: Roots::default(),
-        connect: Duration::from_secs(5),
-        read: Duration::from_secs(5),
-        write: Duration::from_secs(5),
-        ..Client::default()
-    };
+    let client = local(Roots::default());
     let uri = Uri::parse(&format!("https://localhost:{port}/")).unwrap();
     let outcome = client.fetch(get(), &uri, b"");
     assert!(
@@ -266,13 +259,7 @@ fn pooling() {
         let (stream, _) = listener.accept().unwrap();
         reused(stream)
     });
-    let client = Client {
-        roots: held.roots,
-        connect: Duration::from_secs(5),
-        read: Duration::from_secs(5),
-        write: Duration::from_secs(5),
-        ..Client::default()
-    };
+    let client = local(held.roots);
     let one = Uri::parse(&format!("https://localhost:{port}/one")).unwrap();
     let two = Uri::parse(&format!("https://localhost:{port}/two")).unwrap();
     let mut pool = Pool::new(client);
@@ -282,4 +269,21 @@ fn pooling() {
     assert!(seen.contains("GET /one HTTP/1.1\r\n"), "{seen}");
     assert!(seen.contains("GET /two HTTP/1.1\r\n"), "{seen}");
     assert!(seen.contains("connection: keep-alive\r\n"), "{seen}");
+}
+
+#[test]
+fn commanding() {
+    let held = mint("localhost");
+    let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+    let port = listener.local_addr().unwrap().port();
+    let server = thread::spawn(move || {
+        let (stream, _) = listener.accept().unwrap();
+        serve(stream)
+    });
+    let target = format!("https://localhost:{port}/path");
+    let response = driven(local(held.roots), &[&target]).unwrap().response;
+    assert_eq!(response.head.status.get(), 200);
+    assert_eq!(response.body, b"ok");
+    let seen = String::from_utf8(server.join().unwrap()).unwrap();
+    assert!(seen.starts_with("GET /path HTTP/1.1\r\n"), "{seen}");
 }

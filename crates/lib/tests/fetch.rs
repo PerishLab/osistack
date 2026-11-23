@@ -6,10 +6,6 @@ fn scheme() {
     let uri = Uri::parse("https://example.test/").unwrap();
     let request = Request::new(Method::new("GET").unwrap(), &uri, Vec::new()).unwrap();
     assert!(matches!(fetch(&request, b""), Err(Error::Scheme)));
-    assert!(matches!(
-        command(&["https://example.test/"]),
-        Err(Error::Scheme)
-    ));
 }
 
 #[test]
