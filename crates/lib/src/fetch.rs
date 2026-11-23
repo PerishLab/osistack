@@ -47,6 +47,11 @@ pub fn driven(mut client: Client, args: &[&str]) -> Result<Applied, Error> {
         client.total = total;
     }
     client.extra = taken.extra;
+    if let Some(list) = taken.noproxy.as_deref()
+        && bypass(uri.host(), list)
+    {
+        client.via = None;
+    }
     let mut result = client.fetch(taken.method.clone(), &uri, &taken.body);
     for _ in 0..taken.retry {
         if result.is_ok() {
@@ -84,6 +89,7 @@ struct Parsed {
     written: Option<String>,
     extra: Vec<Field>,
     retry: u32,
+    noproxy: Option<String>,
 }
 
 impl Parsed {
@@ -103,6 +109,7 @@ impl Parsed {
             written: None,
             extra: Vec::new(),
             retry: 0,
+            noproxy: None,
         };
         let mut at = 0;
         while at < args.len() {
@@ -131,6 +138,10 @@ impl Parsed {
             }
             "--retry" => {
                 self.retry = count(needed(args, at)?)?;
+                Ok(at + 2)
+            }
+            "--noproxy" => {
+                self.noproxy = Some(needed(args, at)?.to_owned());
                 Ok(at + 2)
             }
             "-o" | "--output" => {
@@ -189,6 +200,12 @@ fn header(text: &str) -> Result<Field, Error> {
     let value = value.strip_prefix(' ').unwrap_or(value);
     let value = Value::new(value.as_bytes()).map_err(|_| Error::Usage)?;
     Ok(Field { name, value })
+}
+
+fn bypass(host: &str, list: &str) -> bool {
+    list.split(',')
+        .map(str::trim)
+        .any(|item| item == "*" || item == host)
 }
 
 fn count(text: &str) -> Result<u32, Error> {

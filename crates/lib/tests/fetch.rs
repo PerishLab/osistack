@@ -1,5 +1,5 @@
 use osistack::http::{Method, Request, Uri};
-use osistack::{Error, applied, command, fetch};
+use osistack::{Client, Error, applied, command, driven, fetch};
 
 #[test]
 fn scheme() {
@@ -20,6 +20,7 @@ fn usage() {
     assert!(matches!(command(&["-H"]), Err(Error::Usage)));
     assert!(matches!(command(&["--header"]), Err(Error::Usage)));
     assert!(matches!(command(&["--retry"]), Err(Error::Usage)));
+    assert!(matches!(command(&["--noproxy"]), Err(Error::Usage)));
     assert!(matches!(
         command(&["--retry", "abc", "http://a/"]),
         Err(Error::Usage)
@@ -228,4 +229,29 @@ fn retrying() {
     let target = format!("http://127.0.0.1:{port}/path");
     assert!(command(&["--retry", "1", &target]).is_err());
     server.join().unwrap();
+}
+
+#[test]
+fn skipping() {
+    use osistack::h1::Server;
+    use std::time::Duration;
+    let origin = Server::replying(vec![
+        b"HTTP/1.1 200 OK\r\ncontent-length: 2\r\n\r\nok".to_vec(),
+    ]);
+    let target = format!("http://127.0.0.1:{}/path", origin.port);
+    let closed = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+    let port = closed.local_addr().unwrap().port();
+    let proxy = format!("http://127.0.0.1:{port}");
+    let client = Client {
+        via: Some(osistack::http::Uri::parse(&proxy).unwrap()),
+        connect: Duration::from_millis(200),
+        ..Client::default()
+    };
+    let response = driven(client, &["--noproxy", "127.0.0.1", &target])
+        .unwrap()
+        .response;
+    assert_eq!(response.head.status.get(), 200);
+    assert_eq!(response.body, b"ok");
+    let seen = String::from_utf8(origin.captured()).unwrap();
+    assert!(seen.starts_with("GET /path HTTP/1.1\r\n"), "{seen}");
 }
