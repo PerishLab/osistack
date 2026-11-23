@@ -1,6 +1,23 @@
 [identity]
 ns = "osistack"
 
+[release]
+targets = ["x86_64-unknown-linux-gnu"]
+
+[release.cargo]
+registry = "perish"
+packages = [
+  "osistack-crypto",
+  "osistack-wire",
+  "osistack-http",
+  "osistack-h1",
+  "osistack-h2",
+  "osistack-h3",
+  "osistack-tls",
+  "osistack-quic",
+  "osistack",
+]
+
 [[layout.seat]]
 path = "crates/*"
 anchor = ["Cargo.toml"]
@@ -21,3 +38,7 @@ note = "Public product introduction and contribution entry."
 [[layout.file]]
 name = ["CREDITS.md"]
 note = "The attribution registry and borrowing rules for sources osistack learns from."
+
+[[layout.file]]
+name = ["release-steps.md"]
+note = "Release sequence notes. Prep only; this file does not open, stamp, or ship a release."
