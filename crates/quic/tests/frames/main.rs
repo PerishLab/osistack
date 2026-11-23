@@ -1,4 +1,5 @@
 mod acks;
+mod corpus;
 mod data;
 mod each;
 mod reject;

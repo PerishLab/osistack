@@ -51,6 +51,17 @@ been copied or adapted into this repository.
 | ureq | https://github.com/algesten/ureq | MIT OR Apache-2.0 | tag 3.5.2 (ureq 3.5.2) | Idea or architecture | Contract for the synchronous client shape and behavior baseline in `osistack`; none yet | none |
 | curl | https://github.com/curl/curl | curl (SPDX `curl`, file COPYING) | tag curl-8_23_0 | Idea or architecture | Behavior baseline for the M5 command line; none yet | none |
 
+
+## Runtime corpora
+
+These files are read at test time from a path supplied through the environment.
+Nothing from them is copied into this repository. The tests that use them are
+ignored and do not gate default `cargo test` or Guard.
+
+| Source | Upstream | SPDX license | Checked | Level | osistack module | Path |
+|---|---|---|---|---|---|---|
+| Wycheproof | https://github.com/google/wycheproof | Apache-2.0 | 2026-11-23, text vectors as shipped in the BoringSSL third_party snapshot checked on this machine | Specification and vectors, runtime only, not copied | Ignored osistack-crypto AEAD and X25519 tests | environment variable `OSISTACK_WYCHEPROOF` (a directory of the official `*_test.txt` files) |
+
 ## Planned, not yet adopted
 
 These tools are intended for the verification ladder but nothing here uses them
@@ -63,7 +74,6 @@ license GitHub reported on 2026-11-17 and is informational only.
 | tlsfuzzer | https://github.com/tlsfuzzer/tlsfuzzer | GPL-2.0 | External tool only; no code or vectors copied |
 | h2spec | https://github.com/summerwind/h2spec | MIT | External HTTP/2 conformance baseline |
 | h3spec | https://github.com/kazu-yamamoto/h3spec | BSD-3-Clause | External HTTP/3 conformance baseline |
-| Wycheproof | https://github.com/google/wycheproof | Apache-2.0 | Vectors for replaced cryptographic primitives |
 | QUIC Interop Runner | https://github.com/quic-interop/quic-interop-runner | not asserted by the repository | External QUIC interoperability baseline |
 | BoGo | part of BoringSSL | not yet checked | External TLS conformance baseline |
 | openssl, nghttpd | upstream projects | not yet checked | External differential peers |

@@ -1,3 +1,6 @@
+#[allow(dead_code)]
+pub mod cases;
+
 pub fn hex(text: &str) -> Vec<u8> {
     let clean: String = text.split_whitespace().collect();
     (0..clean.len())
