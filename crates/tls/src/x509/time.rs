@@ -77,6 +77,45 @@ impl Time {
         })
     }
 
+    pub fn now() -> Self {
+        let secs = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map(|span| span.as_secs())
+            .unwrap_or(0);
+        let second = (secs % 60) as u8;
+        let minutes = secs / 60;
+        let minute = (minutes % 60) as u8;
+        let hours = minutes / 60;
+        let hour = (hours % 24) as u8;
+        let mut day = hours / 24;
+        let mut year = 1970u32;
+        loop {
+            let length = if leap(year) { 366 } else { 365 };
+            if day < length {
+                break;
+            }
+            day -= length;
+            year += 1;
+        }
+        let mut month = 1u32;
+        loop {
+            let length = u64::from(days(year, month));
+            if day < length {
+                break;
+            }
+            day -= length;
+            month += 1;
+        }
+        Self {
+            year: year as u16,
+            month: month as u8,
+            day: (day + 1) as u8,
+            hour,
+            minute,
+            second,
+        }
+    }
+
     pub fn unix(&self) -> i64 {
         let month = i64::from(self.month);
         let year = i64::from(self.year) - i64::from(month <= 2);

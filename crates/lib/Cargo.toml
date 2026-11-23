@@ -9,12 +9,12 @@ publish.workspace = true
 [dependencies]
 crypto.workspace = true
 h1.workspace = true
+h2.workspace = true
 http.workspace = true
 socket.workspace = true
 tls.workspace = true
 wire.workspace = true
 
 [dev-dependencies]
-h2.workspace = true
 h3.workspace = true
 quic.workspace = true

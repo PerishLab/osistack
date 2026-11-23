@@ -1,4 +1,5 @@
 use crate::error::Error;
+use crate::extension::{Place, Typed};
 use crate::hello::Accepted;
 use crate::message::{Kind, Message};
 use crate::record::{Content, Layer, Record};
@@ -13,6 +14,7 @@ pub struct Verified {
     pub(super) digest: Running,
     pub(super) client: Traffic,
     pub(super) schedule: Schedule,
+    pub(super) protocol: Option<Vec<u8>>,
 }
 
 pub struct Complete {
@@ -31,6 +33,10 @@ impl Verified {
 
     pub fn client(&self) -> &Traffic {
         &self.client
+    }
+
+    pub fn protocol(&self) -> Option<&[u8]> {
+        self.protocol.as_deref()
     }
 
     pub fn finish(&self) -> Result<Complete, Error> {
@@ -160,6 +166,20 @@ fn opened(accepted: &Accepted, records: &[Record]) -> Result<Vec<u8>, Error> {
     Ok(payload)
 }
 
+fn protocol(found: &crate::Encrypted) -> Result<Option<Vec<u8>>, Error> {
+    let mut chosen = None;
+    for item in &found.extensions {
+        let Some(Typed::Protocols(names)) = Typed::parse(item, Place::Encrypted)? else {
+            continue;
+        };
+        if names.len() != 1 || chosen.is_some() {
+            return Err(Error::Value);
+        }
+        chosen = names.into_iter().next();
+    }
+    Ok(chosen)
+}
+
 impl Accepted {
     pub fn verify(
         &self,
@@ -184,7 +204,7 @@ impl Accepted {
         let extensions = pull(&mut data)?;
         need(&extensions, Kind::Extensions)?;
         let found = crate::Encrypted::parse(&extensions.body)?;
-        let _ = found;
+        let protocol = protocol(&found)?;
         absorb(&mut digest, &extensions)?;
         let certificate = pull(&mut data)?;
         need(&certificate, Kind::Certificate)?;
@@ -215,6 +235,7 @@ impl Accepted {
             digest,
             client: self.client.clone(),
             schedule: self.schedule.clone(),
+            protocol,
         })
     }
 }
