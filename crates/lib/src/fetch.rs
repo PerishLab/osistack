@@ -47,6 +47,9 @@ pub fn driven(mut client: Client, args: &[&str]) -> Result<Applied, Error> {
         client.total = total;
     }
     client.extra = taken.extra;
+    if let Some(via) = taken.proxy {
+        client.via = Some(via);
+    }
     if let Some(list) = taken.noproxy.as_deref()
         && bypass(uri.host(), list)
     {
@@ -90,6 +93,7 @@ struct Parsed {
     extra: Vec<Field>,
     retry: u32,
     noproxy: Option<String>,
+    proxy: Option<Uri>,
 }
 
 impl Parsed {
@@ -110,6 +114,7 @@ impl Parsed {
             extra: Vec::new(),
             retry: 0,
             noproxy: None,
+            proxy: None,
         };
         let mut at = 0;
         while at < args.len() {
@@ -142,6 +147,14 @@ impl Parsed {
             }
             "--noproxy" => {
                 self.noproxy = Some(needed(args, at)?.to_owned());
+                Ok(at + 2)
+            }
+            "-x" | "--proxy" => {
+                let uri = Uri::parse(needed(args, at)?).map_err(|_| Error::Usage)?;
+                if uri.scheme() != Scheme::Http {
+                    return Err(Error::Usage);
+                }
+                self.proxy = Some(uri);
                 Ok(at + 2)
             }
             "-o" | "--output" => {
