@@ -10,55 +10,33 @@ fn scheme() {
 
 #[test]
 fn usage() {
-    assert!(matches!(command(&[]), Err(Error::Usage)));
-    assert!(matches!(command(&["--method"]), Err(Error::Usage)));
-    assert!(matches!(command(&["-o"]), Err(Error::Usage)));
-    assert!(matches!(command(&["--output"]), Err(Error::Usage)));
-    assert!(matches!(command(&["--max-time"]), Err(Error::Usage)));
-    assert!(matches!(command(&["-w"]), Err(Error::Usage)));
-    assert!(matches!(command(&["--write-out"]), Err(Error::Usage)));
-    assert!(matches!(command(&["-H"]), Err(Error::Usage)));
-    assert!(matches!(command(&["--header"]), Err(Error::Usage)));
-    assert!(matches!(command(&["--retry"]), Err(Error::Usage)));
-    assert!(matches!(command(&["--noproxy"]), Err(Error::Usage)));
-    assert!(matches!(command(&["-x"]), Err(Error::Usage)));
-    assert!(matches!(command(&["--proxy"]), Err(Error::Usage)));
-    assert!(matches!(
-        command(&["--proxy", "not-a-url", "http://a/"]),
-        Err(Error::Usage)
-    ));
-    assert!(matches!(
-        command(&["--retry", "abc", "http://a/"]),
-        Err(Error::Usage)
-    ));
-    assert!(matches!(
-        command(&["--retry", "-1", "http://a/"]),
-        Err(Error::Usage)
-    ));
-    assert!(matches!(
-        command(&["--header", "X-Test", "http://a/"]),
-        Err(Error::Usage)
-    ));
-    assert!(matches!(
-        command(&["-H", ": yes", "http://a/"]),
-        Err(Error::Usage)
-    ));
-    assert!(matches!(
-        command(&["--max-time", "abc", "http://a/"]),
-        Err(Error::Usage)
-    ));
-    assert!(matches!(
-        command(&["--max-time", "-1", "http://a/"]),
-        Err(Error::Usage)
-    ));
-    assert!(matches!(
-        command(&["--verbose", "http://a/"]),
-        Err(Error::Usage)
-    ));
-    assert!(matches!(
-        command(&["http://a/", "http://b/"]),
-        Err(Error::Usage)
-    ));
+    let bad = [
+        &[][..],
+        &["--method"],
+        &["-o"],
+        &["--output"],
+        &["--max-time"],
+        &["-w"],
+        &["--write-out"],
+        &["-H"],
+        &["--header"],
+        &["--retry"],
+        &["--noproxy"],
+        &["-x"],
+        &["--proxy"],
+        &["--proxy", "not-a-url", "http://a/"],
+        &["--retry", "abc", "http://a/"],
+        &["--retry", "-1", "http://a/"],
+        &["--header", "X-Test", "http://a/"],
+        &["-H", ": yes", "http://a/"],
+        &["--max-time", "abc", "http://a/"],
+        &["--max-time", "-1", "http://a/"],
+        &["--verbose", "http://a/"],
+        &["http://a/", "http://b/"],
+    ];
+    for args in bad {
+        assert!(matches!(command(args), Err(Error::Usage)), "{args:?}");
+    }
 }
 
 #[test]
@@ -293,4 +271,23 @@ fn proxied() {
     assert_eq!(response.body, b"ok");
     let seen = String::from_utf8(origin.captured()).unwrap();
     assert!(seen.starts_with("GET /path HTTP/1.1\r\n"), "{seen}");
+}
+
+#[test]
+fn heading() {
+    use osistack::h1::Server;
+    for flag in ["-I", "--head"] {
+        let server = Server::replying(vec![
+            b"HTTP/1.1 200 OK\r\ncontent-length: 0\r\n\r\n".to_vec(),
+        ]);
+        let target = format!("http://127.0.0.1:{}/path", server.port);
+        let response = command(&[flag, &target]).unwrap();
+        assert_eq!(response.head.status.get(), 200);
+        let seen = String::from_utf8(server.captured()).unwrap();
+        assert!(seen.starts_with("HEAD /path HTTP/1.1\r\n"), "{seen}");
+    }
+    assert!(matches!(
+        command(&["-I", "--method", "POST", "http://a/"]),
+        Err(Error::Usage)
+    ));
 }

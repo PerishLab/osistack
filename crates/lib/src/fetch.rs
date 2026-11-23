@@ -96,6 +96,7 @@ struct Parsed {
     noproxy: Option<String>,
     proxy: Option<Uri>,
     follow: bool,
+    head: bool,
 }
 
 impl Parsed {
@@ -118,6 +119,7 @@ impl Parsed {
             noproxy: None,
             proxy: None,
             follow: false,
+            head: false,
         };
         let mut at = 0;
         while at < args.len() {
@@ -133,7 +135,11 @@ impl Parsed {
     fn step(&mut self, args: &[&str], at: usize) -> Result<usize, Error> {
         match args[at] {
             "--method" => {
-                self.method = Method::new(needed(args, at)?)?;
+                let method = Method::new(needed(args, at)?)?;
+                if self.head && method.text() != "HEAD" {
+                    return Err(Error::Usage);
+                }
+                self.method = method;
                 Ok(at + 2)
             }
             "--data" => {
@@ -176,6 +182,10 @@ impl Parsed {
                 self.written = Some(needed(args, at)?.to_owned());
                 Ok(at + 2)
             }
+            "-I" | "--head" => {
+                self.heading()?;
+                Ok(at + 1)
+            }
             "-s" | "--silent" | "-S" | "--show-error" => Ok(at + 1),
             "-L" | "--location" => {
                 self.follow = true;
@@ -196,6 +206,14 @@ impl Parsed {
         }
     }
 
+    fn heading(&mut self) -> Result<(), Error> {
+        if self.method.text() != "GET" && self.method.text() != "HEAD" {
+            return Err(Error::Usage);
+        }
+        self.head = true;
+        self.method = Method::new("HEAD")?;
+        Ok(())
+    }
     fn shorts(&mut self, flag: &str) -> Result<(), Error> {
         if flag.len() < 2 {
             return Err(Error::Usage);
@@ -205,6 +223,7 @@ impl Parsed {
                 'f' => self.fail = true,
                 's' | 'S' => {}
                 'L' => self.follow = true,
+                'I' => self.heading()?,
                 _ => return Err(Error::Usage),
             }
         }
