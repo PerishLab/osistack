@@ -35,7 +35,7 @@ impl<'a> Clock<'a> {
             exchange.wire(uri.host())?;
         }
         if exchange.h2() {
-            return call(&mut exchange, method, uri, body);
+            return Mux::boot(&mut exchange)?.ask(&mut exchange, method, uri, body);
         }
         let fields = Client::fields(&method, uri, body, true)?;
         let request = Request::new(method, target, fields)?.encode()?;
@@ -116,60 +116,75 @@ fn asked(method: &Method, uri: &Uri, body: &[u8]) -> Vec<Header> {
     fields
 }
 
-fn call(
-    exchange: &mut Exchange,
-    method: Method,
-    uri: &Uri,
-    body: &[u8],
-) -> Result<Response, Error> {
-    let (mut connection, start) = Connection::start(Settings::default());
-    exchange.send(&start)?;
-    let mut inbox = Vec::new();
-    let mut headers = None;
-    let mut payload = Vec::new();
-    let mut ended = false;
-    let mut opened = false;
-    while !ended {
-        if !opened && connection.ready() {
-            let id = connection.streams().next().map_err(|_| Error::Usage)?;
-            let fin = body.is_empty();
-            let frames = connection
-                .headers(id, &asked(&method, uri, body), fin)
-                .map_err(|_| Error::Usage)?;
-            emit(exchange, &connection, &frames)?;
-            if !fin {
-                let data = Frame::Data {
-                    stream: id,
-                    fin: true,
-                    pad: None,
-                    data: body.to_vec(),
-                };
-                connection.send(&data).map_err(|_| Error::Usage)?;
-                emit(exchange, &connection, &[data])?;
-            }
-            opened = true;
-        }
-        inbox.extend(exchange.gather()?);
-        let codec = connection.inbound();
-        while let Some((frame, used)) = codec.decode(&inbox)? {
-            inbox.drain(..used);
-            let reaction = connection.receive(&frame).map_err(|_| Error::Usage)?;
-            emit(exchange, &connection, &reaction.reply)?;
-            if let Some(block) = reaction.block {
-                headers = Some(block.fields);
-                ended = block.fin;
-            }
-            if let Frame::Data { data, fin, .. } = frame {
-                payload.extend(data);
-                ended = fin;
-            }
-        }
+pub(crate) struct Mux {
+    connection: Connection,
+    inbox: Vec<u8>,
+}
+
+impl Mux {
+    pub(crate) fn boot(exchange: &mut Exchange) -> Result<Self, Error> {
+        let (connection, start) = Connection::start(Settings::default());
+        exchange.send(&start)?;
+        Ok(Self {
+            connection,
+            inbox: Vec::new(),
+        })
     }
-    let fields = headers.ok_or(Error::Short)?;
-    Ok(Response {
-        head: status(&fields)?,
-        body: payload,
-    })
+
+    pub(crate) fn ask(
+        &mut self,
+        exchange: &mut Exchange,
+        method: Method,
+        uri: &Uri,
+        body: &[u8],
+    ) -> Result<Response, Error> {
+        let mut headers = None;
+        let mut payload = Vec::new();
+        let mut ended = false;
+        let mut opened = false;
+        while !ended {
+            if !opened && self.connection.ready() {
+                let id = self.connection.streams().next().map_err(|_| Error::Usage)?;
+                let fin = body.is_empty();
+                let frames = self
+                    .connection
+                    .headers(id, &asked(&method, uri, body), fin)
+                    .map_err(|_| Error::Usage)?;
+                emit(exchange, &self.connection, &frames)?;
+                if !fin {
+                    let data = Frame::Data {
+                        stream: id,
+                        fin: true,
+                        pad: None,
+                        data: body.to_vec(),
+                    };
+                    self.connection.send(&data).map_err(|_| Error::Usage)?;
+                    emit(exchange, &self.connection, &[data])?;
+                }
+                opened = true;
+            }
+            self.inbox.extend(exchange.gather()?);
+            let codec = self.connection.inbound();
+            while let Some((frame, used)) = codec.decode(&self.inbox)? {
+                self.inbox.drain(..used);
+                let reaction = self.connection.receive(&frame).map_err(|_| Error::Usage)?;
+                emit(exchange, &self.connection, &reaction.reply)?;
+                if let Some(block) = reaction.block {
+                    headers = Some(block.fields);
+                    ended = block.fin;
+                }
+                if let Frame::Data { data, fin, .. } = frame {
+                    payload.extend(data);
+                    ended = fin;
+                }
+            }
+        }
+        let fields = headers.ok_or(Error::Short)?;
+        Ok(Response {
+            head: status(&fields)?,
+            body: payload,
+        })
+    }
 }
 
 fn emit(exchange: &mut Exchange, connection: &Connection, frames: &[Frame]) -> Result<(), Error> {
