@@ -43,6 +43,8 @@ fn supported() {
             (Area::Http1, "http10-response"),
             (Area::Http1, "smuggling-defense"),
             (Area::Http1, "status-not-error"),
+            (Area::Tls, "x25519"),
+            (Area::Tls, "p256"),
             (Area::Tls, "aes-gcm"),
             (Area::Tls, "chacha20-poly1305"),
             (Area::Tls, "chain-validation"),
@@ -127,7 +129,6 @@ fn pending() {
         (Area::Http1, "total-timeout"),
         (Area::Http1, "phase-timeout"),
         (Area::Http1, "loopback-test-server"),
-        (Area::Tls, "x25519"),
         (Area::Tls, "sni"),
         (Area::Tls, "alpn"),
         (Area::Http2, "settings"),
@@ -160,9 +161,9 @@ fn unique() {
             + profile.count(State::Unverified),
         profile.capabilities.len()
     );
-    assert_eq!(profile.count(State::Supported), 41);
+    assert_eq!(profile.count(State::Supported), 43);
     assert_eq!(profile.count(State::Excluded), 32);
-    assert_eq!(profile.count(State::Unverified), 30);
+    assert_eq!(profile.count(State::Unverified), 28);
 }
 
 #[test]

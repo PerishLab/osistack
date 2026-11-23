@@ -1,3 +1,4 @@
+mod agree;
 mod chain;
 mod protect;
 mod schedule;
@@ -19,6 +20,7 @@ pub fn table() -> Vec<(&'static str, Check)> {
         ("explicit-pem-roots", roots as Check),
         ("hostname-validation", hostname as Check),
     ];
+    rows.extend(agree::table());
     rows.extend(schedule::table());
     rows.extend(protect::table());
     rows.extend(chain::table());
