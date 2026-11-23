@@ -30,6 +30,9 @@ pub fn command(args: &[&str]) -> Result<Response, Error> {
     }
     let request = Request::new(taken.method, &uri, Vec::new())?;
     let response = fetch(&request, &taken.body)?;
+    if taken.fail && response.head.status.get() >= 400 {
+        return Err(Error::Status);
+    }
     if let Some(path) = taken.output {
         fs::write(path, &response.body)?;
     }
@@ -41,6 +44,7 @@ struct Parsed {
     target: String,
     body: Vec<u8>,
     output: Option<String>,
+    fail: bool,
 }
 
 impl Parsed {
@@ -55,6 +59,7 @@ impl Parsed {
             target: String::new(),
             body: Vec::new(),
             output: None,
+            fail: false,
         };
         let mut at = 0;
         while at < args.len() {
@@ -81,6 +86,15 @@ impl Parsed {
                 self.output = Some(needed(args, at)?.to_owned());
                 Ok(at + 2)
             }
+            "-f" | "--fail" => {
+                self.fail = true;
+                Ok(at + 1)
+            }
+            "-s" | "--silent" | "-S" | "--show-error" | "-L" | "--location" => Ok(at + 1),
+            flag if flag.starts_with('-') && !flag.starts_with("--") => {
+                self.shorts(flag)?;
+                Ok(at + 1)
+            }
             flag if flag.starts_with('-') => Err(Error::Usage),
             text => {
                 if !self.target.is_empty() {
@@ -90,6 +104,20 @@ impl Parsed {
                 Ok(at + 1)
             }
         }
+    }
+
+    fn shorts(&mut self, flag: &str) -> Result<(), Error> {
+        if flag.len() < 2 {
+            return Err(Error::Usage);
+        }
+        for unit in flag.chars().skip(1) {
+            match unit {
+                'f' => self.fail = true,
+                's' | 'S' | 'L' => {}
+                _ => return Err(Error::Usage),
+            }
+        }
+        Ok(())
     }
 }
 

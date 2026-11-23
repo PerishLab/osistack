@@ -71,3 +71,52 @@ fn output() {
     let _ = std::fs::remove_file(&path);
     let _ = std::fs::remove_file(&again);
 }
+
+#[test]
+fn failing() {
+    use osistack::h1::Server;
+    let server = Server::replying(vec![
+        b"HTTP/1.1 404 Not Found\r\ncontent-length: 0\r\n\r\n".to_vec(),
+    ]);
+    let target = format!("http://127.0.0.1:{}/missing", server.port);
+    let response = command(&[&target]).unwrap();
+    assert_eq!(response.head.status.get(), 404);
+    let server = Server::replying(vec![
+        b"HTTP/1.1 404 Not Found\r\ncontent-length: 0\r\n\r\n".to_vec(),
+    ]);
+    let target = format!("http://127.0.0.1:{}/missing", server.port);
+    assert!(matches!(command(&["-f", &target]), Err(Error::Status)));
+    let server = Server::replying(vec![
+        b"HTTP/1.1 500 Internal Server Error\r\ncontent-length: 0\r\n\r\n".to_vec(),
+    ]);
+    let target = format!("http://127.0.0.1:{}/fail", server.port);
+    assert!(matches!(command(&["--fail", &target]), Err(Error::Status)));
+}
+
+#[test]
+fn located() {
+    use osistack::h1::Server;
+    let dest = Server::replying(vec![
+        b"HTTP/1.1 200 OK\r\ncontent-length: 2\r\n\r\nok".to_vec(),
+    ]);
+    let location = format!("http://127.0.0.1:{}/next", dest.port);
+    let head = format!("HTTP/1.1 302 Found\r\nLocation: {location}\r\nContent-Length: 0\r\n\r\n");
+    let src = Server::replying(vec![head.into_bytes()]);
+    let target = format!("http://127.0.0.1:{}/old", src.port);
+    let response = command(&["-fsSL", &target]).unwrap();
+    assert_eq!(response.head.status.get(), 200);
+    assert_eq!(response.body, b"ok");
+    let _ = src.captured();
+    let _ = dest.captured();
+    assert!(matches!(command(&["-fsSL"]), Err(Error::Usage)));
+    assert!(matches!(
+        command(&[
+            "--silent",
+            "--show-error",
+            "--location",
+            "http://a/",
+            "http://b/"
+        ]),
+        Err(Error::Usage)
+    ));
+}

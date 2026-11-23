@@ -15,6 +15,7 @@ pub enum Error {
     Redirect,
     Timeout,
     Output,
+    Status,
 }
 
 impl fmt::Display for Error {
@@ -36,6 +37,7 @@ impl fmt::Display for Error {
             ),
             Self::Timeout => write!(out, "the request exceeded the total time limit"),
             Self::Output => write!(out, "could not write the output file"),
+            Self::Status => write!(out, "the server returned an HTTP error status"),
         }
     }
 }
