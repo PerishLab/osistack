@@ -1,5 +1,6 @@
 mod agree;
 mod chain;
+mod extend;
 mod protect;
 mod schedule;
 mod verify;
@@ -22,6 +23,7 @@ pub fn table() -> Vec<(&'static str, Check)> {
         ("hostname-validation", hostname as Check),
     ];
     rows.extend(agree::table());
+    rows.extend(extend::table());
     rows.extend(schedule::table());
     rows.extend(protect::table());
     rows.extend(verify::table());

@@ -50,6 +50,8 @@ fn supported() {
             (Area::Tls, "chacha20-poly1305"),
             (Area::Tls, "ecdsa-verify"),
             (Area::Tls, "rsa-verify"),
+            (Area::Tls, "sni"),
+            (Area::Tls, "alpn"),
             (Area::Tls, "chain-validation"),
             (Area::Tls, "hostname-validation"),
             (Area::Tls, "explicit-pem-roots"),
@@ -140,8 +142,6 @@ fn pending() {
         (Area::Http1, "redirect-policy"),
         (Area::Http1, "total-timeout"),
         (Area::Http1, "phase-timeout"),
-        (Area::Tls, "sni"),
-        (Area::Tls, "alpn"),
         (Area::Quic, "v1"),
         (Area::Quic, "retry-handshake"),
         (Area::Quic, "ecn"),
@@ -167,9 +167,9 @@ fn unique() {
             + profile.count(State::Unverified),
         profile.capabilities.len()
     );
-    assert_eq!(profile.count(State::Supported), 55);
+    assert_eq!(profile.count(State::Supported), 57);
     assert_eq!(profile.count(State::Excluded), 32);
-    assert_eq!(profile.count(State::Unverified), 16);
+    assert_eq!(profile.count(State::Unverified), 14);
 }
 
 #[test]
