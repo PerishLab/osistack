@@ -1,8 +1,11 @@
 mod agree;
 mod chain;
 mod extend;
+mod peer;
+mod piped;
 mod protect;
 mod schedule;
+mod sign;
 mod verify;
 
 use crate::behaviour::Check;
