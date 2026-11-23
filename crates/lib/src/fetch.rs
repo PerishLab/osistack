@@ -1,6 +1,7 @@
 use crate::client::{Client, Response};
 use crate::error::Error;
-use http::{Method, Request, Scheme, Uri};
+use h1::Field;
+use http::{Method, Name, Request, Scheme, Uri, Value};
 use std::fs;
 use std::time::Duration;
 
@@ -45,6 +46,7 @@ pub fn driven(mut client: Client, args: &[&str]) -> Result<Applied, Error> {
     if let Some(total) = taken.total {
         client.total = total;
     }
+    client.extra = taken.extra;
     let response = client.fetch(taken.method, &uri, &taken.body)?;
     if taken.fail && response.head.status.get() >= 400 {
         return Err(Error::Status);
@@ -73,6 +75,7 @@ struct Parsed {
     fail: bool,
     total: Option<Duration>,
     written: Option<String>,
+    extra: Vec<Field>,
 }
 
 impl Parsed {
@@ -90,6 +93,7 @@ impl Parsed {
             fail: false,
             total: None,
             written: None,
+            extra: Vec::new(),
         };
         let mut at = 0;
         while at < args.len() {
@@ -110,6 +114,10 @@ impl Parsed {
             }
             "--data" => {
                 self.body = needed(args, at)?.as_bytes().to_vec();
+                Ok(at + 2)
+            }
+            "-H" | "--header" => {
+                self.extra.push(header(needed(args, at)?)?);
                 Ok(at + 2)
             }
             "-o" | "--output" => {
@@ -157,6 +165,17 @@ impl Parsed {
         }
         Ok(())
     }
+}
+
+fn header(text: &str) -> Result<Field, Error> {
+    let (name, value) = text.split_once(':').ok_or(Error::Usage)?;
+    if name.is_empty() {
+        return Err(Error::Usage);
+    }
+    let name = Name::new(name).map_err(|_| Error::Usage)?;
+    let value = value.strip_prefix(' ').unwrap_or(value);
+    let value = Value::new(value.as_bytes()).map_err(|_| Error::Usage)?;
+    Ok(Field { name, value })
 }
 
 fn needed<'a>(args: &[&'a str], at: usize) -> Result<&'a str, Error> {

@@ -14,6 +14,7 @@ pub struct Client {
     pub head: usize,
     pub body: usize,
     pub roots: Roots,
+    pub extra: Vec<Field>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -32,6 +33,7 @@ impl Default for Client {
             head: 64 * 1024,
             body: 16 * 1024 * 1024,
             roots: Roots::default(),
+            extra: Vec::new(),
         }
     }
 }
@@ -57,6 +59,7 @@ impl Client {
     }
 
     pub(crate) fn fields(
+        &self,
         method: &Method,
         uri: &Uri,
         body: &[u8],
@@ -76,6 +79,7 @@ impl Client {
             let size = body.len().to_string();
             fields.push(Self::field("content-length", size.as_bytes())?);
         }
+        fields.extend(self.extra.iter().cloned());
         Ok(fields)
     }
 
