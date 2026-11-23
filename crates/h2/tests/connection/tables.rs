@@ -44,7 +44,7 @@ fn acknowledged() {
         table: 0,
         ..Settings::default()
     };
-    let (mut connection, _) = Connection::start(wanted.clone());
+    let (mut connection, _) = Connection::start(wanted.clone()).unwrap();
     connection.receive(&settings(&[])).unwrap();
     connection.send(&Stream(1).headers(false)).unwrap();
     connection
@@ -59,7 +59,7 @@ fn acknowledged() {
         code: Code::Compression,
     };
     assert_eq!(connection.receive(&update), Err(fault));
-    let (mut early, _) = Connection::start(wanted);
+    let (mut early, _) = Connection::start(wanted).unwrap();
     early.receive(&settings(&[])).unwrap();
     early.send(&Stream(1).headers(false)).unwrap();
     assert!(early.receive(&update).unwrap().block.is_some());
@@ -111,7 +111,7 @@ fn inbound() {
         window: 100,
         ..Settings::default()
     };
-    let (mut connection, _) = Connection::start(wanted);
+    let (mut connection, _) = Connection::start(wanted).unwrap();
     connection.receive(&settings(&[])).unwrap();
     connection.receive(&ack()).unwrap();
     connection.headers(1, &[], false).unwrap();

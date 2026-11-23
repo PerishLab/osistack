@@ -7,7 +7,7 @@ const PROTOCOL: Fault = Fault::Connection {
 const FLOW: Fault = Fault::Connection { code: Code::Flow };
 
 fn fresh() -> Connection {
-    Connection::start(Settings::default()).0
+    Connection::start(Settings::default()).unwrap().0
 }
 
 #[test]

@@ -57,7 +57,7 @@ impl Stream {
 }
 
 pub fn ready(server: &[(u16, u32)]) -> Connection {
-    let (mut connection, _) = Connection::start(Settings::default());
+    let (mut connection, _) = Connection::start(Settings::default()).unwrap();
     connection.receive(&settings(server)).unwrap();
     connection.receive(&ack()).unwrap();
     connection
@@ -99,7 +99,7 @@ pub fn answered(table: u32) -> Connection {
         table,
         ..Settings::default()
     };
-    let (mut connection, _) = Connection::start(wanted);
+    let (mut connection, _) = Connection::start(wanted).unwrap();
     connection.receive(&settings(&[])).unwrap();
     connection.receive(&ack()).unwrap();
     connection

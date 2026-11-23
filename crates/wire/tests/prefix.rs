@@ -1,4 +1,4 @@
-use wire::{Error, Prefix, Prefixed, Reader, Writer};
+use wire::{Error, Packed, Prefix, Prefixed, Reader, Writer};
 
 fn read(bits: u8, bytes: &[u8]) -> Result<Prefixed, Error> {
     Reader::new(bytes).prefixed(Prefix::new(bits).unwrap())
@@ -130,4 +130,17 @@ fn trips() {
             }
         }
     }
+}
+
+#[test]
+fn packed() {
+    assert_eq!(
+        Packed::new(5, 0x20).map(|m| Packed::valid(5, 0x20) == m),
+        Ok(true)
+    );
+    assert_eq!(Packed::new(5, 0x1f), Err(Error::Range));
+    assert_eq!(Packed::new(0, 0), Err(Error::Range));
+    let mut writer = Writer::new();
+    writer.packed(Packed::valid(5, 0x20), 10);
+    assert_eq!(writer.finish(), write(5, 0x20, 10).unwrap());
 }

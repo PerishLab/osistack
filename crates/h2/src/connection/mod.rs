@@ -5,6 +5,7 @@ pub use control::Notice;
 
 use crate::assembly::{Assembly, Block};
 use crate::codec::{Codec, PREFACE};
+use crate::error::Error;
 use crate::flow::Flow;
 use crate::frame::Frame;
 use crate::hpack::{Decoder, Encoder};
@@ -37,7 +38,7 @@ pub struct Connection {
 }
 
 impl Connection {
-    pub fn start(wanted: Settings) -> (Self, Vec<u8>) {
+    pub fn start(wanted: Settings) -> Result<(Self, Vec<u8>), Error> {
         let proposal = Settings {
             push: false,
             ..wanted
@@ -47,8 +48,7 @@ impl Connection {
             list: proposal.list(),
         };
         let mut bytes = PREFACE.to_vec();
-        let encoded = Codec::default().encode(&frame);
-        bytes.extend(encoded.expect("settings fit one frame"));
+        bytes.extend(Codec::default().encode(&frame)?);
         let connection = Self {
             local: Settings::default(),
             remote: Settings::default(),
@@ -63,7 +63,7 @@ impl Connection {
             decoder: Decoder::new(4096),
             encoder: Encoder::new(4096, true),
         };
-        (connection, bytes)
+        Ok((connection, bytes))
     }
 
     pub fn local(&self) -> &Settings {
