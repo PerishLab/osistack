@@ -72,12 +72,7 @@ impl Link {
 
 pub fn open(stream: Stream, host: &str, client: &Client, deadline: Instant) -> Result<Link, Error> {
     begin(
-        Held {
-            stream,
-            host,
-            client,
-            deadline,
-        },
+        held(stream, host, client, deadline),
         &[b"http/1.1".to_vec()],
     )
 }
@@ -89,14 +84,18 @@ pub fn browse(
     deadline: Instant,
 ) -> Result<Link, Error> {
     begin(
-        Held {
-            stream,
-            host,
-            client,
-            deadline,
-        },
+        held(stream, host, client, deadline),
         &[b"h2".to_vec(), b"http/1.1".to_vec()],
     )
+}
+
+fn held<'a>(stream: Stream, host: &'a str, client: &'a Client, deadline: Instant) -> Held<'a> {
+    Held {
+        stream,
+        host,
+        client,
+        deadline,
+    }
 }
 
 struct Held<'a> {
@@ -109,13 +108,20 @@ struct Held<'a> {
 fn begin(held: Held, protocols: &[Vec<u8>]) -> Result<Link, Error> {
     let write = budget(held.deadline, held.client.write)?;
     let read = budget(held.deadline, held.client.read)?;
-    let secret = entropy()?;
+    let one = entropy()?;
+    let two = entropy()?;
     let random = entropy()?;
-    let share = Share {
-        group: 0x001d,
-        key: Group::X25519.public(&secret).map_err(tls::Error::from)?,
-    };
-    let hello = Hello::start(held.host.as_bytes(), protocols, share, random)?;
+    let shares = [
+        Share {
+            group: 0x001d,
+            key: Group::X25519.public(&one).map_err(tls::Error::from)?,
+        },
+        Share {
+            group: 0x0017,
+            key: Group::Secp256r1.public(&two).map_err(tls::Error::from)?,
+        },
+    ];
+    let hello = Hello::begin(held.host.as_bytes(), protocols, &shares, random)?;
     let mut stream = held.stream;
     let host = held.host;
     let client = held.client;
@@ -133,7 +139,7 @@ fn begin(held: Held, protocols: &[Vec<u8>]) -> Result<Link, Error> {
     if reply.retry() {
         return Err(Error::Tls(tls::Error::Kind));
     }
-    let shared = agreed(&secret, &reply)?;
+    let shared = agreed(&one, &two, &reply)?;
     let accepted = hello.accept(&reply, &shared)?;
     let mut pipe = Pipe {
         stream: &mut stream,
@@ -171,7 +177,7 @@ fn aead(suite: u16) -> Result<Aead, Error> {
     }
 }
 
-fn agreed(secret: &[u8; 32], reply: &Reply) -> Result<Vec<u8>, Error> {
+fn agreed(one: &[u8; 32], two: &[u8; 32], reply: &Reply) -> Result<Vec<u8>, Error> {
     let mut share = None;
     for item in &reply.extensions {
         if let Some(Typed::Chosen(found)) = Typed::parse(item, Place::Reply)? {
@@ -179,9 +185,9 @@ fn agreed(secret: &[u8; 32], reply: &Reply) -> Result<Vec<u8>, Error> {
         }
     }
     let share = share.ok_or(tls::Error::Missing)?;
-    let group = match share.group {
-        0x001d => Group::X25519,
-        0x0017 => Group::Secp256r1,
+    let (group, secret) = match share.group {
+        0x001d => (Group::X25519, one),
+        0x0017 => (Group::Secp256r1, two),
         _ => return Err(Error::Tls(tls::Error::Value)),
     };
     Ok(group.agree(secret, &share.key).map_err(tls::Error::from)?)

@@ -1,3 +1,4 @@
+pub mod httpd;
 pub mod outside;
 
 use osistack::Client;
