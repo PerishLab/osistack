@@ -79,7 +79,7 @@ pub fn driven(mut client: Client, args: &[&str]) -> Result<Applied, Error> {
         fs::write(path, &response.body)?;
     }
     if let Some(path) = taken.dump {
-        fs::write(path, listed(&response.head))?;
+        fs::write(path, response.listed())?;
     }
     let written = taken
         .written
@@ -92,18 +92,6 @@ fn expand(response: &Response, format: &str) -> String {
     format
         .replace("%{http_code}", &response.head.status.get().to_string())
         .replace("%{size_download}", &response.body.len().to_string())
-}
-
-fn listed(head: &h1::Head) -> String {
-    let mut out = format!("HTTP/1.1 {} {}\r\n", head.status.get(), head.reason);
-    for field in &head.fields {
-        out.push_str(field.name.text());
-        out.push_str(": ");
-        out.push_str(&String::from_utf8_lossy(field.value.bytes()));
-        out.push_str("\r\n");
-    }
-    out.push_str("\r\n");
-    out
 }
 
 struct Parsed {
@@ -175,6 +163,11 @@ impl Parsed {
             }
             "-H" | "--header" => {
                 self.extra.push(header(needed(args, at)?)?);
+                Ok(at + 2)
+            }
+            "-A" | "--user-agent" => {
+                let text = format!("user-agent: {}", needed(args, at)?);
+                self.extra.push(header(&text)?);
                 Ok(at + 2)
             }
             "--retry" => {
