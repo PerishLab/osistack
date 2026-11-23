@@ -56,4 +56,19 @@ impl Hello {
     pub fn digest(&self) -> Vec<u8> {
         self.digest.peek()
     }
+
+    pub fn offered(spoken: &[u8]) -> Result<Self, Error> {
+        let (message, used) = Message::parse(spoken, (1 << 24) - 1)?.ok_or(Error::Length)?;
+        if used != spoken.len() || message.kind != Kind::Offer {
+            return Err(Error::Kind);
+        }
+        let offer = Offer::parse(&message.body)?;
+        let mut digest = Running::new(Hash::Sha256);
+        digest.update(spoken);
+        Ok(Self {
+            offer,
+            spoken: spoken.to_vec(),
+            digest,
+        })
+    }
 }
