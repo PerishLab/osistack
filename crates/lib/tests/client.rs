@@ -165,3 +165,15 @@ fn peering() {
     assert_eq!(response.head.status.get(), 200);
     assert_eq!(response.body, b"ok");
 }
+
+#[test]
+#[ignore = "timing"]
+fn cycling() {
+    for _ in 0..32 {
+        let server = Server::replying(text(&["HTTP/1.1 200 OK\r\nContent-Length: 4\r\n\r\nbody"]));
+        let response = client().fetch(get(), &server.uri, b"").unwrap();
+        assert_eq!(response.head.status.get(), 200);
+        assert_eq!(response.body, b"body");
+        let _ = server.captured();
+    }
+}
