@@ -4,7 +4,7 @@ Current workspace version is 0.0.0. Cargo `publish = false` is the standing over
 
 Registry: `perish`, already declared in `.cargo/config.toml` as `sparse+https://cargo.perish.uk/`.
 
-Release authority URL: not present in any existing osistack config, so `[release].authority` is left unset. Lab convention across other products is `https://releases.<ns>.perish.uk` (here that would be `https://releases.osistack.perish.uk`). Confirm that URL before writing it into `plumb.toml` or opening a release.
+Release authority URL: confirmed as `https://releases.osistack.perish.uk` and set in `plumb.toml` `[release].authority`. The host is not live yet (TLS handshake fails). Bringing it up belongs to the user-gated first 0.1.0 publish; do not provision the host, and do not open, stamp, or ship a release from this scaffolding.
 
 If targets are declared, v0 is Linux x86_64 GNU only (`x86_64-unknown-linux-gnu`). macOS and Windows are independent Features, not required v0 sub-items.
 
@@ -12,7 +12,7 @@ Nine cargo packages in `[release.cargo].packages`: osistack-crypto, osistack-wir
 
 Sequence (mirror of radicula; versions are placeholders — use the owed version at the time of a real release):
 
-0. plumb --version; git fetch --tags; main == origin/main; plumb doctor clean; `[release.cargo].packages` lists the nine crates; authority is set only after it is confirmed.
+0. plumb --version; git fetch --tags; main == origin/main; plumb doctor clean; `[release.cargo].packages` lists the nine crates; `[release].authority` is `https://releases.osistack.perish.uk`. The authority host must already be live before open/stamp/ship; bringing it up is part of the user-gated first 0.1.0 publish.
 1. plumb release owed
 2. plumb release open --version X.Y.Z
 3. plumb release stamp --version X.Y.Z-rc.1
