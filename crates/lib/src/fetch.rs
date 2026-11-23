@@ -4,6 +4,11 @@ use http::{Method, Request, Scheme, Uri};
 use std::fs;
 use std::time::Duration;
 
+pub struct Applied {
+    pub response: Response,
+    pub written: Option<String>,
+}
+
 pub fn fetch(request: &Request, body: &[u8]) -> Result<Response, Error> {
     if request.scheme() != Scheme::Http {
         return Err(Error::Scheme);
@@ -24,6 +29,10 @@ pub fn fetch(request: &Request, body: &[u8]) -> Result<Response, Error> {
 }
 
 pub fn command(args: &[&str]) -> Result<Response, Error> {
+    Ok(applied(args)?.response)
+}
+
+pub fn applied(args: &[&str]) -> Result<Applied, Error> {
     let taken = Parsed::read(args)?;
     let uri = Uri::parse(&taken.target)?;
     if uri.scheme() != Scheme::Http {
@@ -40,7 +49,17 @@ pub fn command(args: &[&str]) -> Result<Response, Error> {
     if let Some(path) = taken.output {
         fs::write(path, &response.body)?;
     }
-    Ok(response)
+    let written = taken
+        .written
+        .as_deref()
+        .map(|format| expand(&response, format));
+    Ok(Applied { response, written })
+}
+
+fn expand(response: &Response, format: &str) -> String {
+    format
+        .replace("%{http_code}", &response.head.status.get().to_string())
+        .replace("%{size_download}", &response.body.len().to_string())
 }
 
 struct Parsed {
@@ -50,6 +69,7 @@ struct Parsed {
     output: Option<String>,
     fail: bool,
     total: Option<Duration>,
+    written: Option<String>,
 }
 
 impl Parsed {
@@ -66,6 +86,7 @@ impl Parsed {
             output: None,
             fail: false,
             total: None,
+            written: None,
         };
         let mut at = 0;
         while at < args.len() {
@@ -98,6 +119,10 @@ impl Parsed {
             }
             "--max-time" => {
                 self.total = Some(limit(needed(args, at)?)?);
+                Ok(at + 2)
+            }
+            "-w" | "--write-out" => {
+                self.written = Some(needed(args, at)?.to_owned());
                 Ok(at + 2)
             }
             "-s" | "--silent" | "-S" | "--show-error" | "-L" | "--location" => Ok(at + 1),

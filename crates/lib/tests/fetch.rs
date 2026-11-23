@@ -1,5 +1,5 @@
 use osistack::http::{Method, Request, Uri};
-use osistack::{Error, command, fetch};
+use osistack::{Error, applied, command, fetch};
 
 #[test]
 fn scheme() {
@@ -19,6 +19,8 @@ fn usage() {
     assert!(matches!(command(&["-o"]), Err(Error::Usage)));
     assert!(matches!(command(&["--output"]), Err(Error::Usage)));
     assert!(matches!(command(&["--max-time"]), Err(Error::Usage)));
+    assert!(matches!(command(&["-w"]), Err(Error::Usage)));
+    assert!(matches!(command(&["--write-out"]), Err(Error::Usage)));
     assert!(matches!(
         command(&["--max-time", "abc", "http://a/"]),
         Err(Error::Usage)
@@ -147,4 +149,24 @@ fn capped() {
     let response = command(&["--max-time", "5", &target]).unwrap();
     assert_eq!(response.head.status.get(), 200);
     assert_eq!(response.body, b"ok");
+}
+
+#[test]
+fn written() {
+    use osistack::h1::Server;
+    let server = Server::replying(vec![
+        b"HTTP/1.1 200 OK\r\ncontent-length: 2\r\n\r\nok".to_vec(),
+    ]);
+    let target = format!("http://127.0.0.1:{}/file", server.port);
+    let outcome = applied(&["-w", "%{http_code} %{size_download}", &target]).unwrap();
+    assert_eq!(outcome.response.head.status.get(), 200);
+    assert_eq!(outcome.response.body, b"ok");
+    assert_eq!(outcome.written.as_deref(), Some("200 2"));
+    let server = Server::replying(vec![
+        b"HTTP/1.1 201 Created\r\ncontent-length: 3\r\n\r\nyes".to_vec(),
+    ]);
+    let target = format!("http://127.0.0.1:{}/file", server.port);
+    let outcome = applied(&["--write-out", "code=%{http_code}", &target]).unwrap();
+    assert_eq!(outcome.response.body, b"yes");
+    assert_eq!(outcome.written.as_deref(), Some("code=201"));
 }

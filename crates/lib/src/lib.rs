@@ -10,7 +10,7 @@ mod secure;
 
 pub use client::{Client, Response};
 pub use error::Error;
-pub use fetch::{command, fetch};
+pub use fetch::{Applied, applied, command, fetch};
 pub use h1;
 pub use http;
 pub use pool::Pool;
