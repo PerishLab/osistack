@@ -5,9 +5,9 @@ use crate::message::{Kind, Message};
 use crypto::{Hash, Running};
 
 pub struct Hello {
-    offer: Offer,
-    spoken: Vec<u8>,
-    digest: Running,
+    pub(super) offer: Offer,
+    pub(super) spoken: Vec<u8>,
+    pub(super) digest: Running,
 }
 
 impl Hello {
