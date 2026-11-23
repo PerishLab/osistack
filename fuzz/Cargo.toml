@@ -60,3 +60,17 @@ path = "fuzz_targets/qpack.rs"
 test = false
 doc = false
 bench = false
+
+[[bin]]
+name = "handshake"
+path = "fuzz_targets/handshake.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "h3frame"
+path = "fuzz_targets/h3frame.rs"
+test = false
+doc = false
+bench = false
