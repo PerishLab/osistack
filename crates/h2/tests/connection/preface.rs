@@ -6,7 +6,7 @@ const ACK: [u8; 9] = [0, 0, 0, 4, 1, 0, 0, 0, 0];
 
 #[test]
 fn bytes() {
-    let (connection, bytes) = Connection::start(Settings::default());
+    let (connection, bytes) = Connection::start(Settings::default()).unwrap();
     assert_eq!(&bytes[..24], &PREFACE[..]);
     assert_eq!(
         &bytes[24..],
@@ -24,7 +24,7 @@ fn custom() {
         frame: 32_768,
         ..Settings::default()
     };
-    let (_, bytes) = Connection::start(wanted);
+    let (_, bytes) = Connection::start(wanted).unwrap();
     let expect = [
         0, 0, 18, 4, 0, 0, 0, 0, 0, 0, 2, 0, 0, 0, 0, 0, 4, 0, 16, 0, 0, 0, 5, 0, 0, 128, 0,
     ];
@@ -33,7 +33,7 @@ fn custom() {
 
 #[test]
 fn acknowledge() {
-    let (mut connection, _) = Connection::start(Settings::default());
+    let (mut connection, _) = Connection::start(Settings::default()).unwrap();
     let codec = Codec::default();
     let (frame, used) = codec.decode(&EMPTY).unwrap().unwrap();
     assert_eq!(used, 9);
@@ -51,7 +51,7 @@ fn effective() {
         frame: 32_768,
         ..Settings::default()
     };
-    let (mut connection, _) = Connection::start(wanted);
+    let (mut connection, _) = Connection::start(wanted).unwrap();
     connection.receive(&settings(&[])).unwrap();
     connection.send(&Stream(1).headers(false)).unwrap();
     assert_eq!(connection.flow().incoming(1), Some(65_535));
@@ -149,7 +149,7 @@ fn unlimited() {
 
 #[test]
 fn proposals() {
-    let (mut connection, _) = Connection::start(Settings::default());
+    let (mut connection, _) = Connection::start(Settings::default()).unwrap();
     connection.receive(&settings(&[])).unwrap();
     connection.send(&settings(&[(4, 500)])).unwrap();
     connection.send(&settings(&[(3, 7)])).unwrap();
@@ -171,7 +171,7 @@ fn conversation() {
         window: 4096,
         ..Settings::default()
     };
-    let (mut connection, _) = Connection::start(wanted);
+    let (mut connection, _) = Connection::start(wanted).unwrap();
     let server = [
         vec![0, 0, 6, 4, 0, 0, 0, 0, 0, 0, 3, 0, 0, 0, 2],
         vec![0, 0, 0, 4, 1, 0, 0, 0, 0],

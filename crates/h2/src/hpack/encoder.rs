@@ -1,6 +1,12 @@
 use super::header::Header;
 use super::table::{Found, Table};
-use wire::{Huffman, Prefix, Writer};
+use wire::{Huffman, Packed, Writer};
+
+const SIZE: Packed = Packed::valid(5, 0x20);
+const INDEX: Packed = Packed::valid(7, 0x80);
+const NEVER: Packed = Packed::valid(4, 0x10);
+const FRESH: Packed = Packed::valid(6, 0x40);
+const RAW: Packed = Packed::valid(7, 0);
 
 #[derive(Debug, Clone)]
 pub struct Encoder {
@@ -48,25 +54,21 @@ impl Encoder {
             _ => Vec::new(),
         };
         for size in kept {
-            Self::integer(writer, 5, 0x20, size);
+            Self::integer(writer, SIZE, size);
         }
     }
 
     fn field(&mut self, writer: &mut Writer, header: &Header) {
         let found = self.table.find(&header.name, &header.value);
         if let (Found::Full(index), false) = (found, header.sensitive) {
-            return Self::integer(writer, 7, 0x80, index);
+            return Self::integer(writer, INDEX, index);
         }
         let named = match found {
             Found::Full(index) | Found::Name(index) => index,
             Found::Absent => 0,
         };
-        let (bits, high) = if header.sensitive {
-            (4, 0x10)
-        } else {
-            (6, 0x40)
-        };
-        Self::integer(writer, bits, high, named);
+        let mark = if header.sensitive { NEVER } else { FRESH };
+        Self::integer(writer, mark, named);
         if named == 0 {
             self.string(writer, &header.name);
         }
@@ -80,20 +82,17 @@ impl Encoder {
         match &self.huffman {
             Some(huffman) => {
                 let coded = huffman.encode(bytes);
-                Self::integer(writer, 7, 0x80, coded.len());
+                Self::integer(writer, INDEX, coded.len());
                 writer.put(&coded);
             }
             None => {
-                Self::integer(writer, 7, 0, bytes.len());
+                Self::integer(writer, RAW, bytes.len());
                 writer.put(bytes);
             }
         }
     }
 
-    fn integer(writer: &mut Writer, bits: u8, high: u8, value: usize) {
-        let prefix = Prefix::new(bits).expect("prefix width is fixed");
-        writer
-            .prefixed(prefix, high, value as u64)
-            .expect("prefixed integer fits");
+    fn integer(writer: &mut Writer, packed: Packed, value: usize) {
+        writer.packed(packed, value as u64);
     }
 }

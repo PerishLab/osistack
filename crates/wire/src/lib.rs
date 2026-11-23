@@ -8,5 +8,5 @@ mod varint;
 pub use cursor::{Reader, Writer};
 pub use error::Error;
 pub use huffman::Huffman;
-pub use prefix::{Prefix, Prefixed};
+pub use prefix::{Packed, Prefix, Prefixed};
 pub use varint::Varint;

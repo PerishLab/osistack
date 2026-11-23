@@ -139,7 +139,7 @@ pub(crate) struct Mux {
 
 impl Mux {
     pub(crate) fn boot(exchange: &mut Exchange) -> Result<Self, Error> {
-        let (connection, start) = Connection::start(Settings::default());
+        let (connection, start) = Connection::start(Settings::default()).map_err(Error::Http2)?;
         exchange.send(&start)?;
         Ok(Self {
             connection,

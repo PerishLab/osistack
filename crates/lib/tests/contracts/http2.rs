@@ -145,7 +145,7 @@ fn first(frames: Vec<Frame>) -> Vec<u8> {
 }
 
 fn ready() -> Connection {
-    let (mut client, _) = Connection::start(Settings::default());
+    let (mut client, _) = Connection::start(Settings::default()).unwrap();
     for ack in [false, true] {
         let frame = Frame::Settings {
             ack,
@@ -191,7 +191,7 @@ fn hpack() {
 }
 
 fn limited() {
-    let (mut client, _) = Connection::start(Settings::default());
+    let (mut client, _) = Connection::start(Settings::default()).unwrap();
     client
         .receive(&Frame::Settings {
             ack: false,
@@ -228,7 +228,7 @@ fn reused() {
 }
 
 fn disabled() {
-    let (mut client, bytes) = Connection::start(Settings::default());
+    let (mut client, bytes) = Connection::start(Settings::default()).unwrap();
     let (frame, _) = Codec::default()
         .decode(&bytes[PREFACE.len()..])
         .unwrap()

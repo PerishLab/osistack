@@ -64,7 +64,7 @@ fn oversize() {
         header: Some(64),
         ..Settings::default()
     };
-    let (mut connection, _) = Connection::start(wanted);
+    let (mut connection, _) = Connection::start(wanted).unwrap();
     connection.receive(&settings(&[])).unwrap();
     connection.receive(&ack()).unwrap();
     connection.send(&Stream(1).headers(false)).unwrap();

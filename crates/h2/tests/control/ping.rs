@@ -56,7 +56,7 @@ fn early() {
         code: Code::Protocol,
     };
     for ack in [false, true] {
-        let (mut connection, _) = Connection::start(Settings::default());
+        let (mut connection, _) = Connection::start(Settings::default()).unwrap();
         assert_eq!(connection.receive(&ping(ack, A)), Err(fault));
     }
 }

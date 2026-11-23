@@ -102,7 +102,7 @@ fn everything() {
 
 #[test]
 fn early() {
-    let (mut connection, _) = h2::Connection::start(h2::Settings::default());
+    let (mut connection, _) = h2::Connection::start(h2::Settings::default()).unwrap();
     assert_eq!(connection.receive(&goaway(0, 0)), Err(PROTOCOL));
 }
 

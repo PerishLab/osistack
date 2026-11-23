@@ -61,7 +61,7 @@ impl Stream {
 }
 
 pub fn ready(server: &[(u16, u32)]) -> Connection {
-    let (mut connection, _) = Connection::start(Settings::default());
+    let (mut connection, _) = Connection::start(Settings::default()).unwrap();
     connection.receive(&settings(server)).unwrap();
     connection.receive(&ack()).unwrap();
     connection

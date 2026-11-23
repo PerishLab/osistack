@@ -2,7 +2,23 @@ use crate::error::Error;
 use crate::qpack::field::Field;
 use crate::qpack::section::Section;
 use crate::qpack::tables::{Dynamic, Found, Table};
-use wire::{Huffman, Prefix, Writer};
+use wire::{Huffman, Packed, Writer};
+
+const STATIC: Packed = Packed::valid(6, 0xc0);
+const NAMED: Packed = Packed::valid(4, 0x50);
+const HIDDEN: Packed = Packed::valid(4, 0x70);
+const LATER: Packed = Packed::valid(4, 0x10);
+const PRIOR: Packed = Packed::valid(6, 0x80);
+const OPEN: Packed = Packed::valid(3, 0);
+const POST: Packed = Packed::valid(3, 0x08);
+const LEFT: Packed = Packed::valid(4, 0x40);
+const HELD: Packed = Packed::valid(4, 0x60);
+const SPELL: Packed = Packed::valid(3, 0x20);
+const COVER: Packed = Packed::valid(3, 0x28);
+const MASKED: Packed = Packed::valid(3, 0x30);
+const CODED: Packed = Packed::valid(3, 0x38);
+const INDEX: Packed = Packed::valid(7, 0x80);
+const RAW: Packed = Packed::valid(7, 0);
 
 struct Seen {
     full: Option<u64>,
@@ -71,16 +87,15 @@ impl Encoder {
         let fixed = Table::find(field);
         let secret = field.sensitive;
         if let (Found::Full(index), false) = (fixed, secret) {
-            Self::integer(writer, 6, 0xc0, index);
+            Self::integer(writer, STATIC, index);
             return None;
         }
         if let (Some(absolute), false) = (seen.full, secret) {
             Self::point(writer, absolute, base);
             return Some(absolute);
         }
-        let flag = if secret { 0x20 } else { 0 };
         if let Found::Full(index) | Found::Name(index) = fixed {
-            Self::integer(writer, 4, 0x50 | flag, index);
+            Self::integer(writer, if secret { HIDDEN } else { NAMED }, index);
             self.string(writer, &field.value);
             return None;
         }
@@ -117,8 +132,8 @@ impl Encoder {
 
     fn point(writer: &mut Writer, absolute: u64, base: u64) {
         match absolute.checked_sub(base) {
-            Some(after) => Self::integer(writer, 4, 0x10, after as usize),
-            None => Self::integer(writer, 6, 0x80, (base - 1 - absolute) as usize),
+            Some(after) => Self::integer(writer, LATER, after as usize),
+            None => Self::integer(writer, PRIOR, (base - 1 - absolute) as usize),
         }
     }
 
@@ -126,26 +141,22 @@ impl Encoder {
         let (base, secret) = view;
         match absolute.checked_sub(base) {
             Some(after) => {
-                let high = if secret { 0x08 } else { 0 };
-                Self::integer(writer, 3, high, after as usize);
+                let mark = if secret { POST } else { OPEN };
+                Self::integer(writer, mark, after as usize);
             }
             None => {
-                let high = if secret { 0x60 } else { 0x40 };
-                Self::integer(writer, 4, high, (base - 1 - absolute) as usize);
+                let mark = if secret { HELD } else { LEFT };
+                Self::integer(writer, mark, (base - 1 - absolute) as usize);
             }
         }
     }
 
     fn field(&self, writer: &mut Writer, field: &Field) {
-        let (named, spelled) = if field.sensitive {
-            (0x70, 0x30)
-        } else {
-            (0x50, 0x20)
-        };
+        let spelled = if field.sensitive { 0x30 } else { 0x20 };
         match Table::find(field) {
-            Found::Full(index) if !field.sensitive => Self::integer(writer, 6, 0xc0, index),
+            Found::Full(index) if !field.sensitive => Self::integer(writer, STATIC, index),
             Found::Full(index) | Found::Name(index) => {
-                Self::integer(writer, 4, named, index);
+                Self::integer(writer, if field.sensitive { HIDDEN } else { NAMED }, index);
                 self.string(writer, &field.value);
             }
             Found::Absent => {
@@ -159,11 +170,19 @@ impl Encoder {
         match &self.huffman {
             Some(huffman) => {
                 let coded = huffman.encode(name);
-                Self::integer(writer, 3, high | 0x08, coded.len());
+                Self::integer(
+                    writer,
+                    if high == 0x30 { CODED } else { COVER },
+                    coded.len(),
+                );
                 writer.put(&coded);
             }
             None => {
-                Self::integer(writer, 3, high, name.len());
+                Self::integer(
+                    writer,
+                    if high == 0x30 { MASKED } else { SPELL },
+                    name.len(),
+                );
                 writer.put(name);
             }
         }
@@ -173,20 +192,17 @@ impl Encoder {
         match &self.huffman {
             Some(huffman) => {
                 let coded = huffman.encode(bytes);
-                Self::integer(writer, 7, 0x80, coded.len());
+                Self::integer(writer, INDEX, coded.len());
                 writer.put(&coded);
             }
             None => {
-                Self::integer(writer, 7, 0, bytes.len());
+                Self::integer(writer, RAW, bytes.len());
                 writer.put(bytes);
             }
         }
     }
 
-    fn integer(writer: &mut Writer, bits: u8, high: u8, value: usize) {
-        let prefix = Prefix::new(bits).expect("prefix width is fixed");
-        writer
-            .prefixed(prefix, high, value as u64)
-            .expect("prefixed integer fits");
+    fn integer(writer: &mut Writer, packed: Packed, value: usize) {
+        writer.packed(packed, value as u64);
     }
 }

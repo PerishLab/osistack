@@ -19,8 +19,34 @@ impl Prefix {
         self.0
     }
 
-    fn mask(self) -> u8 {
+    const fn mask(self) -> u8 {
         u8::MAX >> (8 - self.0)
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Packed {
+    prefix: Prefix,
+    high: u8,
+}
+
+impl Packed {
+    pub const fn new(bits: u8, high: u8) -> Result<Self, Error> {
+        if bits < 1 || bits > 8 {
+            return Err(Error::Range);
+        }
+        let prefix = Prefix(bits);
+        if high & prefix.mask() != 0 {
+            return Err(Error::Range);
+        }
+        Ok(Self { prefix, high })
+    }
+
+    pub const fn valid(bits: u8, high: u8) -> Self {
+        match Self::new(bits, high) {
+            Ok(mark) => mark,
+            Err(_) => panic!("packed"),
+        }
     }
 }
 
@@ -69,13 +95,16 @@ impl Reader<'_> {
 
 impl Writer {
     pub fn prefixed(&mut self, prefix: Prefix, high: u8, value: u64) -> Result<(), Error> {
-        let mask = prefix.mask();
-        if high & mask != 0 {
-            return Err(Error::Range);
-        }
+        self.packed(Packed::new(prefix.bits(), high)?, value);
+        Ok(())
+    }
+
+    pub fn packed(&mut self, packed: Packed, value: u64) {
+        let mask = packed.prefix.mask();
+        let high = packed.high;
         if value < u64::from(mask) {
             self.byte(high | value as u8);
-            return Ok(());
+            return;
         }
         self.byte(high | mask);
         let mut rest = value - u64::from(mask);
@@ -84,6 +113,5 @@ impl Writer {
             rest >>= 7;
         }
         self.byte(rest as u8);
-        Ok(())
     }
 }
