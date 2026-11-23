@@ -14,3 +14,32 @@ replacement for request libraries and curl in PerishLab.
   contribution and acceptance policy.
 
 Licensed under the [MIT License](LICENSE).
+
+## Usage
+
+The curl-subset entry points are `osistack::command` and `osistack::applied`.
+They take the same flag list a curl-style argv would, as `&[&str]`. This
+repository does not ship an installed binary. The supported subset lives in
+the [contract](https://github.com/PerishLab/osistack/issues/3).
+
+```rust
+use osistack::{applied, command};
+
+// HTTP/1.1 over cleartext. Follow redirects and write the body to a file.
+let response = command(&[
+    "-L",
+    "-o", "body.bin",
+    "-H", "Accept: text/plain",
+    "http://127.0.0.1:8080/path",
+])?;
+
+// HTTPS needs an explicit PEM trust root. The default store is empty.
+let outcome = applied(&[
+    "--cacert", "ca.pem",
+    "-I",
+    "https://127.0.0.1:8443/",
+])?;
+```
+
+An `https://` URL with no trust roots returns an error that tells you to pass
+`--cacert FILE`.
