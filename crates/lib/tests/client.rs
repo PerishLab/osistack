@@ -3,8 +3,8 @@ mod common;
 
 use common::{Server, client, text};
 use osistack::Roots;
-use osistack::applied;
 use osistack::http::{Method, Uri};
+use osistack::{Error, applied, command};
 use std::fs;
 use std::time::Duration;
 
@@ -181,4 +181,62 @@ fn cycling() {
         assert_eq!(response.body, b"body");
         let _ = server.captured().unwrap();
     }
+}
+
+fn folder(name: &str) -> std::path::PathBuf {
+    let path = std::env::temp_dir().join(format!("osistack-326-{}-{name}", std::process::id()));
+    let _ = fs::remove_dir_all(&path);
+    fs::create_dir_all(&path).unwrap();
+    path
+}
+
+#[test]
+fn absent() {
+    let path = folder("gone").join("gone.pem");
+    let err = command(&["--cacert", path.to_str().unwrap(), "https://example.test/"]).unwrap_err();
+    assert!(matches!(err, Error::Trust), "{err:?}");
+}
+
+#[test]
+fn garbled() {
+    let root = folder("bad");
+    let path = root.join("bad.pem");
+    fs::write(&path, "not-a-certificate").unwrap();
+    let err = command(&["--cacert", path.to_str().unwrap(), "https://example.test/"]).unwrap_err();
+    assert!(matches!(err, Error::Trust), "{err:?}");
+    let _ = fs::remove_dir_all(&root);
+}
+
+#[test]
+fn vacant() {
+    let root = folder("empty");
+    let path = root.join("empty.pem");
+    fs::write(&path, "").unwrap();
+    let err = command(&["--cacert", path.to_str().unwrap(), "https://example.test/"]).unwrap_err();
+    assert!(matches!(err, Error::Trust), "{err:?}");
+    let _ = fs::remove_dir_all(&root);
+}
+
+#[test]
+fn writing() {
+    let server =
+        Server::replying(text(&["HTTP/1.1 200 OK\r\nContent-Length: 2\r\n\r\nok"])).unwrap();
+    let target = format!("http://127.0.0.1:{}/path", server.port);
+    let root = folder("out");
+    let err = command(&["-o", root.to_str().unwrap(), &target]).unwrap_err();
+    assert!(matches!(err, Error::Output), "{err:?}");
+    let _ = fs::remove_dir_all(&root);
+    let _ = server.captured();
+}
+
+#[test]
+fn dumping() {
+    let server =
+        Server::replying(text(&["HTTP/1.1 200 OK\r\nContent-Length: 2\r\n\r\nok"])).unwrap();
+    let target = format!("http://127.0.0.1:{}/path", server.port);
+    let root = folder("dump");
+    let err = command(&["-D", root.to_str().unwrap(), &target]).unwrap_err();
+    assert!(matches!(err, Error::Output), "{err:?}");
+    let _ = fs::remove_dir_all(&root);
+    let _ = server.captured();
 }

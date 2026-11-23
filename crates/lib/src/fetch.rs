@@ -57,7 +57,7 @@ pub fn driven(mut client: Client, args: &[&str]) -> Result<Applied, Error> {
         client.via = None;
     }
     if let Some(path) = taken.cacert {
-        let text = fs::read_to_string(path)?;
+        let text = fs::read_to_string(path).map_err(|_| Error::Trust)?;
         client.roots = Roots::pem(&text).map_err(|_| Error::Trust)?;
     }
     if uri.scheme() == Scheme::Https && client.roots.count() == 0 {
