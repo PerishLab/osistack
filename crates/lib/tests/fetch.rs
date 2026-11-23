@@ -21,6 +21,12 @@ fn usage() {
     assert!(matches!(command(&["--header"]), Err(Error::Usage)));
     assert!(matches!(command(&["--retry"]), Err(Error::Usage)));
     assert!(matches!(command(&["--noproxy"]), Err(Error::Usage)));
+    assert!(matches!(command(&["-x"]), Err(Error::Usage)));
+    assert!(matches!(command(&["--proxy"]), Err(Error::Usage)));
+    assert!(matches!(
+        command(&["--proxy", "not-a-url", "http://a/"]),
+        Err(Error::Usage)
+    ));
     assert!(matches!(
         command(&["--retry", "abc", "http://a/"]),
         Err(Error::Usage)
@@ -251,6 +257,31 @@ fn skipping() {
         .unwrap()
         .response;
     assert_eq!(response.head.status.get(), 200);
+    assert_eq!(response.body, b"ok");
+    let seen = String::from_utf8(origin.captured()).unwrap();
+    assert!(seen.starts_with("GET /path HTTP/1.1\r\n"), "{seen}");
+}
+
+#[test]
+fn proxied() {
+    use osistack::h1::Server;
+    let proxy = Server::replying(vec![
+        b"HTTP/1.1 200 OK\r\ncontent-length: 5\r\n\r\nproxy".to_vec(),
+    ]);
+    let hop = format!("http://127.0.0.1:{}", proxy.port);
+    let response = command(&["--proxy", &hop, "http://127.0.0.1:9/path"]).unwrap();
+    assert_eq!(response.head.status.get(), 200);
+    assert_eq!(response.body, b"proxy");
+    let seen = String::from_utf8(proxy.captured()).unwrap();
+    assert!(
+        seen.starts_with("GET http://127.0.0.1:9/path HTTP/1.1\r\n"),
+        "{seen}"
+    );
+    let origin = Server::replying(vec![
+        b"HTTP/1.1 200 OK\r\ncontent-length: 2\r\n\r\nok".to_vec(),
+    ]);
+    let target = format!("http://127.0.0.1:{}/path", origin.port);
+    let response = command(&["-x", &hop, "--noproxy", "127.0.0.1", &target]).unwrap();
     assert_eq!(response.body, b"ok");
     let seen = String::from_utf8(origin.captured()).unwrap();
     assert!(seen.starts_with("GET /path HTTP/1.1\r\n"), "{seen}");
