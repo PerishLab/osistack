@@ -77,6 +77,19 @@ impl Streams {
         Ok(data)
     }
 
+    pub fn grant(&mut self) -> Vec<Frame> {
+        let mut frames = Vec::new();
+        if let Some(limit) = self.incoming.grant() {
+            frames.push(Frame::Data(limit));
+        }
+        for (id, recv) in &mut self.recv {
+            if let Some(limit) = recv.grant() {
+                frames.push(Frame::Window { stream: *id, limit });
+            }
+        }
+        frames
+    }
+
     fn frame(&mut self, frame: &Frame) -> Result<(), Error> {
         match frame {
             Frame::Stream(stream) => self.push(stream),
