@@ -13,6 +13,7 @@ pub fn table() -> Vec<(&'static str, Check)> {
         ("status-not-error", status as Check),
         ("framing", framing as Check),
         ("smuggling-defense", smuggling as Check),
+        ("loopback-test-server", loopback as Check),
     ]
 }
 
@@ -162,4 +163,13 @@ fn smuggling() {
         .to_ascii_lowercase();
     assert_eq!(seen.matches("content-length:").count(), 1);
     assert!(!seen.contains("transfer-encoding"));
+}
+
+fn loopback() {
+    let server = Server::replying(text(&["HTTP/1.1 200 OK\r\nContent-Length: 4\r\n\r\nbody"]));
+    let response = client().fetch(get(), &server.uri, b"").unwrap();
+    assert_eq!(response.head.status.get(), 200);
+    assert_eq!(response.body, b"body");
+    let seen = server.captured();
+    assert!(seen.starts_with(b"GET /path?q=1 HTTP/1.1\r\n"));
 }
