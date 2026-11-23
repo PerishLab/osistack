@@ -6,7 +6,6 @@ use quic::{Error, Initial, Keys};
 const DCID: &str = "8394c8f03e515708";
 const CLIENTHEAD: &str = "c300000001088394c8f03e5157080000449e00000002";
 
-const UNSUPPORTED: Error = Error::Crypto(crypto::Error::Unsupported);
 const AUTH: Error = Error::Crypto(crypto::Error::Auth);
 
 fn client() -> Keys {
@@ -29,11 +28,9 @@ fn derive() {
     for aead in [Aead::Aes256, Aead::Chacha] {
         let made = Keys::derive(Hash::Sha384, aead, &[7; 48]);
         assert!(made.is_ok(), "{aead:?}");
+        let wide = Keys::derive(Hash::Sha512, aead, &[7; 64]);
+        assert!(wide.is_ok(), "{aead:?}");
     }
-    assert_eq!(
-        Keys::derive(Hash::Sha512, Aead::Aes128, &[7; 64]).err(),
-        Some(UNSUPPORTED)
-    );
     let short = Keys::derive(Hash::Sha256, Aead::Aes128, &[7; 31]);
     assert!(matches!(short.err(), Some(Error::Crypto(_))));
 }

@@ -3,7 +3,6 @@ use crate::support::*;
 use crypto::{Aead, Hash};
 use tls::Error;
 
-const UNSUPPORTED: Error = Error::Crypto(crypto::Error::Unsupported);
 const AUTH: Error = Error::Crypto(crypto::Error::Auth);
 
 #[test]
@@ -61,8 +60,8 @@ fn wide() {
     let shared = hex(SHARED);
     let made = tls::Schedule::new(Hash::Sha384, &shared);
     assert!(made.is_ok());
-    let failed = tls::Schedule::new(Hash::Sha512, &shared);
-    assert_eq!(failed.err(), Some(UNSUPPORTED));
+    let wide = tls::Schedule::new(Hash::Sha512, &shared);
+    assert!(wide.is_ok());
 }
 
 #[test]

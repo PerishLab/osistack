@@ -6,6 +6,7 @@ const PREFIX: &[u8] = b"tls13 ";
 enum Inner {
     Sha256(radicula::Hkdf),
     Sha384(radicula::Hkdf384),
+    Sha512(radicula::Hkdf512),
 }
 
 #[derive(Clone)]
@@ -35,7 +36,9 @@ impl Secret {
             Hash::Sha384 => Ok(Secret {
                 inner: Inner::Sha384(radicula::Hkdf384::extract(salt, ikm)),
             }),
-            Hash::Sha512 => Err(Error::Unsupported),
+            Hash::Sha512 => Ok(Secret {
+                inner: Inner::Sha512(radicula::Hkdf512::extract(salt, ikm)),
+            }),
         }
     }
 
@@ -47,7 +50,9 @@ impl Secret {
             Hash::Sha384 => Ok(Secret {
                 inner: Inner::Sha384(radicula::Hkdf384::new(prk)?),
             }),
-            Hash::Sha512 => Err(Error::Unsupported),
+            Hash::Sha512 => Ok(Secret {
+                inner: Inner::Sha512(radicula::Hkdf512::new(prk)?),
+            }),
         }
     }
 
@@ -56,6 +61,7 @@ impl Secret {
         match &self.inner {
             Inner::Sha256(inner) => inner.expand(info, &mut out)?,
             Inner::Sha384(inner) => inner.expand(info, &mut out)?,
+            Inner::Sha512(inner) => inner.expand(info, &mut out)?,
         }
         Ok(out)
     }
