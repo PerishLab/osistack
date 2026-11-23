@@ -57,12 +57,33 @@ impl<'a> Exchange<'a> {
     }
 
     pub fn wrap(&mut self, host: &str) -> Result<(), Error> {
+        self.hold(host, false)
+    }
+
+    pub fn wire(&mut self, host: &str) -> Result<(), Error> {
+        self.hold(host, true)
+    }
+
+    pub fn h2(&self) -> bool {
+        matches!(&self.body, Some(Body::Secure(link)) if link.h2())
+    }
+
+    fn hold(&mut self, host: &str, offered: bool) -> Result<(), Error> {
         let Body::Plain(stream) = self.body.take().ok_or(Error::Short)? else {
             return Err(Error::Scheme);
         };
-        let link = secure::open(stream, host, self.client, self.deadline)?;
+        let link = if offered {
+            secure::browse(stream, host, self.client, self.deadline)?
+        } else {
+            secure::open(stream, host, self.client, self.deadline)?
+        };
         self.body = Some(Body::Secure(link));
         Ok(())
+    }
+
+    pub(crate) fn gather(&mut self) -> Result<Vec<u8>, Error> {
+        self.fill()?;
+        Ok(std::mem::take(&mut self.data))
     }
 
     pub(crate) fn release(self) -> Slot {

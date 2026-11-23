@@ -3,7 +3,7 @@ use crate::error::Error;
 use crypto::{Aead, Group};
 use socket::Stream;
 use std::io::Read;
-use std::time::{Duration, Instant, SystemTime};
+use std::time::{Duration, Instant};
 use tls::x509::Time;
 use tls::x509::trust::Roots;
 use tls::{Accepted, Content, Hello, Kind, Layer, Message, Place, Record, Reply, Share, Typed};
@@ -22,9 +22,14 @@ pub struct Link {
     plain: Vec<u8>,
     send: Layer,
     recv: Layer,
+    h2: bool,
 }
 
 impl Link {
+    pub fn h2(&self) -> bool {
+        self.h2
+    }
+
     pub fn write(&mut self, bytes: &[u8], timeout: Duration) -> Result<usize, Error> {
         let mut sent = 0;
         while sent < bytes.len() {
@@ -65,16 +70,54 @@ impl Link {
 }
 
 pub fn open(stream: Stream, host: &str, client: &Client, deadline: Instant) -> Result<Link, Error> {
-    let write = budget(deadline, client.write)?;
-    let read = budget(deadline, client.read)?;
+    begin(
+        Held {
+            stream,
+            host,
+            client,
+            deadline,
+        },
+        &[b"http/1.1".to_vec()],
+    )
+}
+
+pub fn browse(
+    stream: Stream,
+    host: &str,
+    client: &Client,
+    deadline: Instant,
+) -> Result<Link, Error> {
+    begin(
+        Held {
+            stream,
+            host,
+            client,
+            deadline,
+        },
+        &[b"h2".to_vec(), b"http/1.1".to_vec()],
+    )
+}
+
+struct Held<'a> {
+    stream: Stream,
+    host: &'a str,
+    client: &'a Client,
+    deadline: Instant,
+}
+
+fn begin(held: Held, protocols: &[Vec<u8>]) -> Result<Link, Error> {
+    let write = budget(held.deadline, held.client.write)?;
+    let read = budget(held.deadline, held.client.read)?;
     let secret = entropy()?;
     let random = entropy()?;
     let share = Share {
         group: 0x001d,
         key: Group::X25519.public(&secret).map_err(tls::Error::from)?,
     };
-    let hello = Hello::start(host.as_bytes(), &[b"http/1.1".to_vec()], share, random)?;
-    let mut stream = stream;
+    let hello = Hello::start(held.host.as_bytes(), protocols, share, random)?;
+    let mut stream = held.stream;
+    let host = held.host;
+    let client = held.client;
     let mut inbox = Vec::new();
     push(
         &mut stream,
@@ -97,11 +140,12 @@ pub fn open(stream: Stream, host: &str, client: &Client, deadline: Instant) -> R
         timeout: read,
     };
     let verified = flight(&mut pipe, &accepted, host, &client.roots)?;
+    let h2 = verified.protocol() == Some(b"h2");
     let complete = verified.finish()?;
     let aead = aead(accepted.reply().suite)?;
     let keys = accepted.client().keys(aead)?;
-    let mut held = Layer::new(aead, &keys)?;
-    let record = held.protect(Content::Handshake, complete.spoken(), 0)?;
+    let mut layer = Layer::new(aead, &keys)?;
+    let record = layer.protect(Content::Handshake, complete.spoken(), 0)?;
     push(&mut stream, &record, write)?;
     Ok(Link {
         stream,
@@ -109,6 +153,7 @@ pub fn open(stream: Stream, host: &str, client: &Client, deadline: Instant) -> R
         plain: Vec::new(),
         send: cover(aead, complete.client())?,
         recv: cover(aead, complete.server())?,
+        h2,
     })
 }
 
@@ -151,7 +196,7 @@ fn flight(
     loop {
         records.push(take(pipe.stream, pipe.inbox, pipe.timeout)?);
         if packed(accepted, &records)? {
-            return Ok(accepted.verify(host, roots, clock(), &records)?);
+            return Ok(accepted.verify(host, roots, Time::now(), &records)?);
         }
         if records.len() > 16 {
             return Err(Error::Tls(tls::Error::Length));
@@ -241,56 +286,4 @@ fn budget(deadline: Instant, phase: Duration) -> Result<Duration, Error> {
         .filter(|left| *left > Duration::ZERO)
         .map(|left| left.min(phase))
         .ok_or(Error::Timeout)
-}
-
-fn leap(year: u32) -> bool {
-    year.is_multiple_of(4) && (!year.is_multiple_of(100) || year.is_multiple_of(400))
-}
-
-fn days(year: u32, month: u32) -> u64 {
-    match month {
-        2 if leap(year) => 29,
-        2 => 28,
-        4 | 6 | 9 | 11 => 30,
-        _ => 31,
-    }
-}
-
-fn clock() -> Time {
-    let secs = SystemTime::now()
-        .duration_since(SystemTime::UNIX_EPOCH)
-        .map(|span| span.as_secs())
-        .unwrap_or(0);
-    let second = (secs % 60) as u8;
-    let minutes = secs / 60;
-    let minute = (minutes % 60) as u8;
-    let hours = minutes / 60;
-    let hour = (hours % 24) as u8;
-    let mut day = hours / 24;
-    let mut year = 1970u32;
-    loop {
-        let length = if leap(year) { 366u64 } else { 365u64 };
-        if day < length {
-            break;
-        }
-        day -= length;
-        year += 1;
-    }
-    let mut month = 1u32;
-    loop {
-        let length = days(year, month);
-        if day < length {
-            break;
-        }
-        day -= length;
-        month += 1;
-    }
-    Time {
-        year: year as u16,
-        month: month as u8,
-        day: (day + 1) as u8,
-        hour,
-        minute,
-        second,
-    }
 }

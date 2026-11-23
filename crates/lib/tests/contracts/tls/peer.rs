@@ -18,6 +18,7 @@ pub struct Held {
     pub der: Vec<u8>,
     pub roots: Roots,
     pub now: Time,
+    pub protocol: Option<Vec<u8>>,
 }
 
 pub struct Waiting {
@@ -119,6 +120,7 @@ pub fn mint(host: &str) -> Held {
             minute: 0,
             second: 0,
         },
+        protocol: None,
     }
 }
 
@@ -197,13 +199,11 @@ pub fn spoken(
     let schedule = tls::Schedule::new(Hash::Sha256, &shared)?;
     let client = schedule.client(&digest.peek())?;
     let server = schedule.server(&digest.peek())?;
-    let extensions = message(
-        Kind::Extensions,
-        Encrypted {
-            extensions: Vec::new(),
-        }
-        .write()?,
-    )?;
+    let extra = match &held.protocol {
+        Some(name) => vec![Typed::Protocols(vec![name.clone()]).write()?],
+        None => Vec::new(),
+    };
+    let extensions = message(Kind::Extensions, Encrypted { extensions: extra }.write()?)?;
     absorb(&mut digest, &extensions);
     let certificate = message(
         Kind::Certificate,

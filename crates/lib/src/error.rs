@@ -6,6 +6,7 @@ pub enum Error {
     Frame(h1::Error),
     Http(http::Error),
     Tls(tls::Error),
+    Http2(h2::Error),
     Scheme,
     Random,
     Limit,
@@ -22,6 +23,7 @@ impl fmt::Display for Error {
             Self::Frame(error) => write!(out, "http/1.1 framing: {error:?}"),
             Self::Http(error) => write!(out, "http semantics: {error:?}"),
             Self::Tls(error) => write!(out, "tls: {error:?}"),
+            Self::Http2(error) => write!(out, "http/2 framing: {error:?}"),
             Self::Scheme => write!(out, "only the http and https schemes are supported"),
             Self::Random => write!(out, "could not read random bytes"),
             Self::Limit => write!(out, "response exceeds the configured size limit"),
@@ -66,5 +68,11 @@ impl From<http::Error> for Error {
 impl From<tls::Error> for Error {
     fn from(error: tls::Error) -> Self {
         Self::Tls(error)
+    }
+}
+
+impl From<h2::Error> for Error {
+    fn from(error: h2::Error) -> Self {
+        Self::Http2(error)
     }
 }
