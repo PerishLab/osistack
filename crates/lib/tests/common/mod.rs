@@ -1,3 +1,5 @@
+pub mod outside;
+
 use osistack::Client;
 use std::time::Duration;
 

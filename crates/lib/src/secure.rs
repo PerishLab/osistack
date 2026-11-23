@@ -63,6 +63,7 @@ impl Link {
                     return Ok(());
                 }
                 Content::Handshake => continue,
+                Content::Alert if opened.payload == [1, 0] => return Ok(()),
                 _ => return Err(Error::Tls(tls::Error::Kind)),
             }
         }
@@ -194,7 +195,11 @@ fn flight(
 ) -> Result<tls::Verified, Error> {
     let mut records = Vec::new();
     loop {
-        records.push(take(pipe.stream, pipe.inbox, pipe.timeout)?);
+        let record = take(pipe.stream, pipe.inbox, pipe.timeout)?;
+        if record.content == Content::Change {
+            continue;
+        }
+        records.push(record);
         if packed(accepted, &records)? {
             return Ok(accepted.verify(host, roots, Time::now(), &records)?);
         }
