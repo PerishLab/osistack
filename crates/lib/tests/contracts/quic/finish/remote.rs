@@ -57,7 +57,15 @@ fn open(keys: &quic::Keys, packet: &[u8], local: usize) -> Vec<u8> {
     keys.unprotect(packet, 1 + local, None).unwrap().payload
 }
 
-pub fn run() {
+pub(super) struct Session {
+    pub near: UdpSocket,
+    pub peer: UdpSocket,
+    pub applied: Applied,
+    pub client: Vec<u8>,
+    pub server: Vec<u8>,
+}
+
+pub(super) fn session() -> Session {
     let original = [0x83, 0x94, 0xc8, 0xf0, 0x3e, 0x51, 0x57, 0x08];
     let client = [9u8; 4];
     let server = [4u8; 8];
@@ -143,18 +151,19 @@ pub fn run() {
     )
     .unwrap();
     let (packet, _) = recv(&peer);
-    let Header::Long(long) = Header::parse(&packet, server.len()).unwrap() else {
+    let Header::Long(header) = Header::parse(&packet, server.len()).unwrap() else {
         panic!("not long");
     };
     let opened = handshake
         .client
-        .unprotect(&packet, long.offset, None)
+        .unprotect(&packet, header.offset, None)
         .unwrap();
     let frames = Frame::all(&opened.payload).unwrap();
     let Frame::Crypto { data, .. } = &frames[0] else {
         panic!("not crypto");
     };
     spoken.waiting.check(data).unwrap();
+    peer.connect(from).unwrap();
     let applied = Applied::new(
         Hash::Sha256,
         Aead::Aes128,
@@ -162,12 +171,33 @@ pub fn run() {
         complete.server().secret(),
     )
     .unwrap();
-    near.send(&protect(&applied.client, &server, b"ping"))
+    Session {
+        near,
+        peer,
+        applied,
+        client: client.to_vec(),
+        server: server.to_vec(),
+    }
+}
+
+pub fn run() {
+    let session = session();
+    session
+        .near
+        .send(&protect(&session.applied.client, &session.server, b"ping"))
         .unwrap();
-    let (packet, from) = recv(&peer);
-    assert_eq!(open(&applied.client, &packet, server.len()), b"ping");
-    peer.send_to(&protect(&applied.server, &client, b"pong"), from)
+    let (packet, _) = recv(&session.peer);
+    assert_eq!(
+        open(&session.applied.client, &packet, session.server.len()),
+        b"ping"
+    );
+    session
+        .peer
+        .send(&protect(&session.applied.server, &session.client, b"pong"))
         .unwrap();
-    let (packet, _) = recv(&near);
-    assert_eq!(open(&applied.server, &packet, client.len()), b"pong");
+    let (packet, _) = recv(&session.near);
+    assert_eq!(
+        open(&session.applied.server, &packet, session.client.len()),
+        b"pong"
+    );
 }

@@ -5,6 +5,7 @@ mod hearing;
 mod opening;
 mod read;
 mod stream;
+mod streams;
 mod write;
 
 use crate::error::Error;
@@ -15,6 +16,7 @@ pub use flight::{Applied, Flight};
 pub use hearing::{Handshake, Hearing};
 pub use opening::Opening;
 pub use stream::Stream;
+pub use streams::Streams;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Direction {

@@ -16,6 +16,7 @@ pub use flow::{
 };
 pub use frame::{
     Ack, Applied, Control, Direction, Ecn, Flight, Frame, Handshake, Hearing, Opening, Stream,
+    Streams,
 };
 pub use packet::{
     Client, Cycle, Header, Initial, Keys, Kind, Long, Negotiation, Number, Opened, Quota, Retry,
