@@ -1,10 +1,11 @@
 use crate::clock::Clock;
 use crate::error::Error;
 use h1::{Field, Head};
-use http::{Method, Name, Uri, Value};
+use http::{Method, Name, Scheme, Uri, Value};
 use std::time::Duration;
+use tls::x509::trust::Roots;
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone)]
 pub struct Client {
     pub connect: Duration,
     pub read: Duration,
@@ -12,6 +13,7 @@ pub struct Client {
     pub total: Duration,
     pub head: usize,
     pub body: usize,
+    pub roots: Roots,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -29,6 +31,7 @@ impl Default for Client {
             total: Duration::from_secs(60),
             head: 64 * 1024,
             body: 16 * 1024 * 1024,
+            roots: Roots::default(),
         }
     }
 }
@@ -39,10 +42,16 @@ impl Client {
     }
 
     pub fn forward(&self, method: Method, uri: &Uri, body: &[u8]) -> Result<Response, Error> {
+        if uri.scheme() != Scheme::Http {
+            return Err(Error::Scheme);
+        }
         Clock::new(self).issue(method, uri, body, &located(uri))
     }
 
     pub fn tunnel(&self, uri: &Uri) -> Result<Response, Error> {
+        if uri.scheme() != Scheme::Http {
+            return Err(Error::Scheme);
+        }
         let method = Method::new("CONNECT")?;
         Clock::new(self).issue(method, uri, b"", &hostport(uri))
     }

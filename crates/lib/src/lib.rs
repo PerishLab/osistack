@@ -6,6 +6,7 @@ mod exchange;
 mod fetch;
 mod pool;
 mod profile;
+mod secure;
 
 pub use client::{Client, Response};
 pub use error::Error;
@@ -17,4 +18,5 @@ pub use profile::{
     Area, Availability, Capability, Help, Operation, Profile, Refusal, State, dispatch, help,
 };
 pub use socket;
+pub use tls::x509::trust::Roots;
 pub use wire;

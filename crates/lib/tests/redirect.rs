@@ -48,11 +48,11 @@ fn rewritten() {
 
 #[test]
 fn https() {
-    let head = "HTTP/1.1 302 Found\r\nLocation: https://example.test/\r\nContent-Length: 0\r\n\r\n";
+    let head = "HTTP/1.1 302 Found\r\nLocation: https://127.0.0.1:1/\r\nContent-Length: 0\r\n\r\n";
     let src = Server::replying(text(&[head]));
     let outcome = client().fetch(get(), &src.uri, b"");
     let _ = src.captured();
-    assert!(matches!(outcome, Err(Error::Scheme)));
+    assert!(matches!(outcome, Err(Error::Socket(_))), "{outcome:?}");
 }
 
 #[test]

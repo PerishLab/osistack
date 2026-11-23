@@ -25,13 +25,16 @@ impl<'a> Clock<'a> {
         body: &[u8],
         target: &str,
     ) -> Result<Response, Error> {
-        if uri.scheme() != Scheme::Http {
+        if !matches!(uri.scheme(), Scheme::Http | Scheme::Https) {
             return Err(Error::Scheme);
         }
         let bodiless = method.text() == "HEAD" || method.text() == "CONNECT";
         let fields = Client::fields(&method, uri, body, true)?;
         let request = Request::new(method, target, fields)?.encode()?;
         let mut exchange = Exchange::until(self.client, uri.host(), uri.port(), self.deadline)?;
+        if uri.scheme() == Scheme::Https {
+            exchange.wrap(uri.host())?;
+        }
         exchange.send(&request)?;
         exchange.send(body)?;
         let head = exchange.head()?;
@@ -66,7 +69,7 @@ impl<'a> Clock<'a> {
             let Some(next) = locate(&target, &response)? else {
                 return Ok(response);
             };
-            if next.scheme() != Scheme::Http {
+            if !matches!(next.scheme(), Scheme::Http | Scheme::Https) {
                 return Err(Error::Scheme);
             }
             if matches!(status, 301..=303) {
