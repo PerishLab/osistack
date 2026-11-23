@@ -15,6 +15,7 @@ pub struct Client {
     pub body: usize,
     pub roots: Roots,
     pub extra: Vec<Field>,
+    pub via: Option<Uri>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -34,6 +35,7 @@ impl Default for Client {
             body: 16 * 1024 * 1024,
             roots: Roots::default(),
             extra: Vec::new(),
+            via: None,
         }
     }
 }
@@ -91,7 +93,7 @@ impl Client {
     }
 }
 
-fn located(uri: &Uri) -> String {
+pub(crate) fn located(uri: &Uri) -> String {
     format!(
         "{}://{}{}",
         uri.scheme().text(),

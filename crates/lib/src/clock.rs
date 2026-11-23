@@ -1,4 +1,4 @@
-use crate::client::{Client, Response};
+use crate::client::{Client, Response, located};
 use crate::error::Error;
 use crate::exchange::Exchange;
 use h1::{Field, Framing, Head, Request, Version};
@@ -30,7 +30,12 @@ impl<'a> Clock<'a> {
             return Err(Error::Scheme);
         }
         let bodiless = method.text() == "HEAD" || method.text() == "CONNECT";
-        let mut exchange = Exchange::until(self.client, uri.host(), uri.port(), self.deadline)?;
+        let hop = if uri.scheme() == Scheme::Http {
+            self.client.via.as_ref().unwrap_or(uri)
+        } else {
+            uri
+        };
+        let mut exchange = Exchange::until(self.client, hop.host(), hop.port(), self.deadline)?;
         if uri.scheme() == Scheme::Https {
             exchange.wire(uri.host())?;
         }
@@ -62,7 +67,12 @@ impl<'a> Clock<'a> {
                 return Err(Error::Redirect);
             }
             seen.push(key);
-            let response = self.issue(method.clone(), &target, &payload, &target.target())?;
+            let line = if self.client.via.is_some() && target.scheme() == Scheme::Http {
+                located(&target)
+            } else {
+                target.target().to_owned()
+            };
+            let response = self.issue(method.clone(), &target, &payload, &line)?;
             let status = response.head.status.get();
             if !matches!(status, 301 | 302 | 303 | 307 | 308) {
                 return Ok(response);
