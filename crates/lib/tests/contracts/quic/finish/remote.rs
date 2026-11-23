@@ -57,7 +57,7 @@ fn open(keys: &quic::Keys, packet: &[u8], local: usize) -> Vec<u8> {
     keys.unprotect(packet, 1 + local, None).unwrap().payload
 }
 
-pub(super) struct Session {
+pub(crate) struct Session {
     pub near: UdpSocket,
     pub peer: UdpSocket,
     pub applied: Applied,
@@ -65,7 +65,7 @@ pub(super) struct Session {
     pub server: Vec<u8>,
 }
 
-pub(super) fn session() -> Session {
+pub(crate) fn session() -> Session {
     let original = [0x83, 0x94, 0xc8, 0xf0, 0x3e, 0x51, 0x57, 0x08];
     let client = [9u8; 4];
     let server = [4u8; 8];

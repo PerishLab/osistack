@@ -17,6 +17,6 @@ pub use qpack::{
     Decoded, Decoder, Dynamic, Encoded, Encoder, Feedback, Field, Instruction, Name, STATIC,
     Section, Sender, Tracker,
 };
-pub use request::{Event, Misuse, Request};
+pub use request::{Call, Event, Misuse, Request};
 pub use settings::Settings;
 pub use streams::{Going, Streams};

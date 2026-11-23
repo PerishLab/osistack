@@ -1,6 +1,6 @@
 mod close;
 mod ecn;
-mod finish;
+pub(crate) mod finish;
 mod gso;
 mod hearing;
 mod integrity;
