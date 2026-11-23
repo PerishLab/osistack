@@ -1,6 +1,6 @@
 use crate::clock::Clock;
 use crate::error::Error;
-use h1::{Field, Head};
+use h1::{Field, Head, Version};
 use http::{Method, Name, Scheme, Uri, Value};
 use std::time::Duration;
 use tls::x509::trust::Roots;
@@ -39,6 +39,24 @@ impl Default for Client {
             via: None,
             follow: true,
         }
+    }
+}
+
+impl Response {
+    pub(crate) fn listed(&self) -> String {
+        let tag = match self.head.version {
+            Version::Http11 => "HTTP/1.1",
+            Version::Http10 => "HTTP/1.0",
+        };
+        let mut out = format!("{tag} {} {}\r\n", self.head.status.get(), self.head.reason);
+        for field in &self.head.fields {
+            out.push_str(field.name.text());
+            out.push_str(": ");
+            out.push_str(&String::from_utf8_lossy(field.value.bytes()));
+            out.push_str("\r\n");
+        }
+        out.push_str("\r\n");
+        out
     }
 }
 
