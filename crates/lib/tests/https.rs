@@ -7,7 +7,7 @@ mod sign;
 
 use crypto::{Aead, Group, Hash};
 use osistack::http::{Method, Uri};
-use osistack::{Client, Roots};
+use osistack::{Client, Pool, Roots};
 use peer::{Waiting, answer, frame, mint};
 use std::io::{Read, Write};
 use std::net::{TcpListener, TcpStream};
@@ -178,4 +178,62 @@ fn roots() {
         "{outcome:?}"
     );
     let _ = server.join();
+}
+
+fn reused(mut stream: TcpStream) -> Vec<u8> {
+    let (hello, waiting, mut buffer) = speak(&mut stream);
+    let (mut send, mut recv) = keys(&hello, &waiting);
+    let mut seen = Vec::new();
+    for last in [false, true] {
+        let start = seen.len();
+        loop {
+            let record = pull(&mut stream, &mut buffer);
+            let opened = recv.unprotect(&record).unwrap();
+            if opened.content != Content::Application {
+                continue;
+            }
+            seen.extend(opened.payload);
+            if seen[start..].windows(4).any(|part| part == b"\r\n\r\n") {
+                break;
+            }
+        }
+        let body: &[u8] = if last { b"b" } else { b"a" };
+        let token = if last { "close" } else { "keep-alive" };
+        let reply = format!(
+            "HTTP/1.1 200 OK\r\ncontent-length: {}\r\nconnection: {token}\r\n\r\n",
+            body.len()
+        );
+        let mut wire = reply.into_bytes();
+        wire.extend_from_slice(body);
+        let record = send.protect(Content::Application, &wire, 0).unwrap();
+        push(&mut stream, &record);
+    }
+    seen
+}
+
+#[test]
+fn pooling() {
+    let held = mint("localhost");
+    let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+    let port = listener.local_addr().unwrap().port();
+    let server = thread::spawn(move || {
+        let (stream, _) = listener.accept().unwrap();
+        reused(stream)
+    });
+    let client = Client {
+        roots: held.roots,
+        connect: Duration::from_secs(5),
+        read: Duration::from_secs(5),
+        write: Duration::from_secs(5),
+        ..Client::default()
+    };
+    let one = Uri::parse(&format!("https://localhost:{port}/one")).unwrap();
+    let two = Uri::parse(&format!("https://localhost:{port}/two")).unwrap();
+    let mut pool = Pool::new(client);
+    assert_eq!(pool.fetch(get(), &one, b"").unwrap().body, b"a");
+    assert_eq!(pool.fetch(get(), &two, b"").unwrap().body, b"b");
+    let seen = String::from_utf8(server.join().unwrap()).unwrap();
+    assert!(seen.contains("GET /one HTTP/1.1\r\n"), "{seen}");
+    assert!(seen.contains("GET /two HTTP/1.1\r\n"), "{seen}");
+    assert!(seen.contains("connection: keep-alive\r\n"), "{seen}");
 }

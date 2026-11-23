@@ -1,9 +1,8 @@
 use crate::client::{Client, Response};
 use crate::error::Error;
-use crate::exchange::Exchange;
+use crate::exchange::{Exchange, Slot};
 use h1::{Framing, Head, Request, Version};
 use http::{Method, Scheme, Uri};
-use socket::Stream;
 use std::time::Instant;
 
 pub struct Pool {
@@ -12,10 +11,9 @@ pub struct Pool {
 }
 
 struct Held {
-    stream: Stream,
+    slot: Slot,
     host: String,
     port: u16,
-    data: Vec<u8>,
 }
 
 impl Pool {
@@ -24,7 +22,7 @@ impl Pool {
     }
 
     pub fn fetch(&mut self, method: Method, uri: &Uri, body: &[u8]) -> Result<Response, Error> {
-        if uri.scheme() != Scheme::Http {
+        if !matches!(uri.scheme(), Scheme::Http | Scheme::Https) {
             return Err(Error::Scheme);
         }
         let bodiless = method.text() == "HEAD" || method.text() == "CONNECT";
@@ -36,7 +34,7 @@ impl Pool {
             if !reused {
                 return Err(error);
             }
-            exchange = Exchange::open(&self.client, uri.host(), uri.port())?;
+            exchange = Self::open(&self.client, uri)?;
             exchange.send(&request)?;
             exchange.send(body)?;
         }
@@ -63,14 +61,21 @@ impl Pool {
             .take()
             .filter(|held| held.host == uri.host() && held.port == uri.port())
         {
-            return Ok(Exchange::resume(
+            return Ok(Exchange::restore(
                 &self.client,
-                held.stream,
-                held.data,
+                held.slot,
                 Instant::now() + self.client.total,
             ));
         }
-        Exchange::open(&self.client, uri.host(), uri.port())
+        Self::open(&self.client, uri)
+    }
+
+    fn open<'a>(client: &'a Client, uri: &Uri) -> Result<Exchange<'a>, Error> {
+        let mut exchange = Exchange::open(client, uri.host(), uri.port())?;
+        if uri.scheme() == Scheme::Https {
+            exchange.wrap(uri.host())?;
+        }
+        Ok(exchange)
     }
 }
 
@@ -78,12 +83,10 @@ fn kept(uri: &Uri, head: &Head, framing: Framing, exchange: Exchange<'_>) -> Opt
     if !reusable(head, framing) {
         return None;
     }
-    let (stream, data) = exchange.taken();
     Some(Held {
-        stream,
+        slot: exchange.release(),
         host: uri.host().to_owned(),
         port: uri.port(),
-        data,
     })
 }
 
