@@ -1,5 +1,8 @@
+use crate::Control;
 use crate::fault::{Code, Fault};
 use crate::frame::{Frame, Framer};
+use crate::qpack::{Encoder, Field};
+use crate::settings::Settings;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Event {
@@ -119,5 +122,41 @@ impl Request {
             }
             _ => Err(fault(Code::Unexpected)),
         }
+    }
+}
+
+pub struct Call {
+    request: Request,
+}
+
+impl Call {
+    pub fn control(settings: &Settings) -> Result<Vec<u8>, Fault> {
+        Control::open(settings)
+    }
+
+    pub fn new(limit: usize) -> Self {
+        Self {
+            request: Request::new(limit),
+        }
+    }
+
+    pub fn headers(&mut self, fields: &[Field]) -> Result<Vec<u8>, Misuse> {
+        self.request.headers(&Encoder::new(true).encode(fields))
+    }
+
+    pub fn data(&mut self, data: &[u8]) -> Result<Vec<u8>, Misuse> {
+        self.request.data(data)
+    }
+
+    pub fn finish(&mut self) -> Result<(), Misuse> {
+        self.request.finish()
+    }
+
+    pub fn feed(&mut self, bytes: &[u8]) -> Result<Vec<Event>, Fault> {
+        self.request.feed(bytes)
+    }
+
+    pub fn end(&mut self) -> Result<Event, Fault> {
+        self.request.end()
     }
 }

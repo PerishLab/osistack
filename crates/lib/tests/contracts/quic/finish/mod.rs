@@ -1,6 +1,8 @@
 mod remote;
 mod streams;
 
+pub(crate) use remote::session;
+
 use crate::tls::{mint, spoken};
 use crypto::{Aead, Group, Hash};
 use quic::{
