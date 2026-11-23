@@ -68,7 +68,7 @@ pub fn table() -> Vec<Capability> {
         Capability::new(Area::Http2, "h2c-upgrade", State::Excluded),
         Capability::new(Area::Http2, "extended-connect", State::Excluded),
         Capability::new(Area::Quic, "v1", State::Supported),
-        Capability::new(Area::Quic, "retry-handshake", State::Unverified),
+        Capability::new(Area::Quic, "retry-handshake", State::Supported),
         Capability::new(Area::Quic, "retry-integrity", State::Supported),
         Capability::new(Area::Quic, "version-negotiation", State::Supported),
         Capability::new(Area::Quic, "stream-flow-control", State::Supported),

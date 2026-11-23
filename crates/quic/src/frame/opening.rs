@@ -1,6 +1,6 @@
 use crate::error::Error;
 use crate::frame::Frame;
-use crate::packet::{Initial, Kind, Long, Number};
+use crate::packet::{Initial, Kind, Long, Number, Retry};
 
 pub struct Opening {
     pub dcid: Vec<u8>,
@@ -26,6 +26,19 @@ impl Opening {
             }
             payload.extend(vec![0u8; 1200 - packet.len()]);
         }
+    }
+
+    pub fn retry(&self, retry: &Retry, hello: &[u8]) -> Result<Vec<u8>, Error> {
+        if retry.token.is_empty() {
+            return Err(Error::Empty);
+        }
+        retry.check(&self.dcid)?;
+        Opening {
+            dcid: retry.scid.clone(),
+            scid: self.scid.clone(),
+            token: retry.token.clone(),
+        }
+        .write(hello)
     }
 
     fn protect(&self, number: &Number, payload: &[u8]) -> Result<Vec<u8>, Error> {

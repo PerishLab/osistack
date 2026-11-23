@@ -3,7 +3,10 @@ use crypto::Error as Auth;
 use quic::{Error, Header, Retry};
 
 pub fn table() -> Vec<(&'static str, Check)> {
-    vec![("retry-integrity", integrity as Check)]
+    vec![
+        ("retry-integrity", integrity as Check),
+        ("retry-handshake", super::opening::retry as Check),
+    ]
 }
 
 fn sample() -> Retry {
