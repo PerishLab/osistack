@@ -1,4 +1,5 @@
 use crate::common::{Server, client, text};
+use osistack::h1::Request;
 use osistack::http::Method;
 use osistack::{Error, h1};
 
@@ -14,6 +15,7 @@ pub fn table() -> Vec<(&'static str, Check)> {
         ("framing", framing as Check),
         ("smuggling-defense", smuggling as Check),
         ("loopback-test-server", loopback as Check),
+        ("proxy", proxy as Check),
     ]
 }
 
@@ -172,4 +174,30 @@ fn loopback() {
     assert_eq!(response.body, b"body");
     let seen = server.captured();
     assert!(seen.starts_with(b"GET /path?q=1 HTTP/1.1\r\n"));
+}
+
+fn proxy() {
+    let sent = ["HTTP/1.1 200 OK\r\nContent-Length: 4\r\n\r\nbody"];
+    let server = Server::replying(text(&sent));
+    let port = server.port;
+    let response = client().forward(get(), &server.uri, b"").unwrap();
+    assert_eq!(response.head.status.get(), 200);
+    assert_eq!(response.body, b"body");
+    let seen = String::from_utf8(server.captured()).unwrap();
+    let target = format!("http://127.0.0.1:{port}/path?q=1");
+    assert!(
+        seen.starts_with(&format!("GET {target} HTTP/1.1\r\n")),
+        "{seen}"
+    );
+    let server = Server::replying(text(&["HTTP/1.1 200 Connection Established\r\n\r\n"]));
+    let port = server.port;
+    let response = client().tunnel(&server.uri).unwrap();
+    assert_eq!(response.head.status.get(), 200);
+    assert!(response.body.is_empty());
+    let seen = String::from_utf8(server.captured()).unwrap();
+    assert!(
+        seen.starts_with(&format!("CONNECT 127.0.0.1:{port} HTTP/1.1\r\n")),
+        "{seen}"
+    );
+    assert!(Request::parse(seen.as_bytes(), 4096).unwrap().is_some());
 }

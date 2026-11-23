@@ -33,12 +33,31 @@ impl Default for Client {
 
 impl Client {
     pub fn fetch(&self, method: Method, uri: &Uri, body: &[u8]) -> Result<Response, Error> {
+        self.issue(method, uri, body, &uri.target())
+    }
+
+    pub fn forward(&self, method: Method, uri: &Uri, body: &[u8]) -> Result<Response, Error> {
+        self.issue(method, uri, body, &located(uri))
+    }
+
+    pub fn tunnel(&self, uri: &Uri) -> Result<Response, Error> {
+        let method = Method::new("CONNECT")?;
+        self.issue(method, uri, b"", &hostport(uri))
+    }
+
+    fn issue(
+        &self,
+        method: Method,
+        uri: &Uri,
+        body: &[u8],
+        target: &str,
+    ) -> Result<Response, Error> {
         if uri.scheme() != Scheme::Http {
             return Err(Error::Scheme);
         }
-        let bodiless = method.text() == "HEAD";
+        let bodiless = method.text() == "HEAD" || method.text() == "CONNECT";
         let fields = Self::fields(&method, uri, body)?;
-        let request = Request::new(method, &uri.target(), fields)?.encode()?;
+        let request = Request::new(method, target, fields)?.encode()?;
         let mut exchange = Exchange::open(self, uri.host(), uri.port())?;
         exchange.send(&request)?;
         exchange.send(body)?;
@@ -53,11 +72,16 @@ impl Client {
     }
 
     fn fields(method: &Method, uri: &Uri, body: &[u8]) -> Result<Vec<Field>, Error> {
+        let host = if method.text() == "CONNECT" {
+            hostport(uri)
+        } else {
+            uri.authority()
+        };
         let mut fields = vec![
-            Self::field("host", uri.authority().as_bytes())?,
+            Self::field("host", host.as_bytes())?,
             Self::field("connection", b"close")?,
         ];
-        if !body.is_empty() || !matches!(method.text(), "GET" | "HEAD") {
+        if !body.is_empty() || !matches!(method.text(), "GET" | "HEAD" | "CONNECT") {
             let size = body.len().to_string();
             fields.push(Self::field("content-length", size.as_bytes())?);
         }
@@ -70,4 +94,23 @@ impl Client {
             value: Value::new(value)?,
         })
     }
+}
+
+fn located(uri: &Uri) -> String {
+    format!(
+        "{}://{}{}",
+        uri.scheme().text(),
+        uri.authority(),
+        uri.target()
+    )
+}
+
+fn hostport(uri: &Uri) -> String {
+    let host = uri.host();
+    let host = if host.contains(':') {
+        format!("[{host}]")
+    } else {
+        host.to_owned()
+    };
+    format!("{host}:{}", uri.port())
 }
