@@ -3,6 +3,7 @@ mod common;
 
 use common::{Server, client, text};
 use osistack::Roots;
+use osistack::applied;
 use osistack::http::{Method, Uri};
 use std::fs;
 use std::time::Duration;
@@ -126,4 +127,24 @@ fn differing() {
     let response = client.fetch(get(), &uri, b"").unwrap();
     assert_eq!(response.head.status.get(), 200);
     assert!(!response.body.is_empty());
+}
+
+#[test]
+#[ignore = "network"]
+fn smoking() {
+    let Ok(url) = std::env::var("OSISTACK_SMOKE_URL") else {
+        return;
+    };
+    let Ok(file) = std::env::var("OSISTACK_SMOKE_CACERT") else {
+        return;
+    };
+    if url.is_empty() || file.is_empty() {
+        return;
+    }
+    if !url.to_ascii_lowercase().starts_with("https://") {
+        return;
+    }
+    let applied = applied(&["--cacert", &file, &url]).unwrap();
+    let status = applied.response.head.status.get();
+    assert!((100..600).contains(&status), "{status}");
 }
