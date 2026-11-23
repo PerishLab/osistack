@@ -94,6 +94,48 @@ impl Uri {
             None => path.to_owned(),
         }
     }
+
+    pub fn written(&self) -> String {
+        format!(
+            "{}://{}{}",
+            self.scheme.text(),
+            self.authority(),
+            self.target()
+        )
+    }
+
+    pub fn join(&self, target: &str) -> Result<Uri, Error> {
+        let target = target.split_once('#').map_or(target, |(body, _)| body);
+        if target.is_empty() {
+            return Err(Error::Target);
+        }
+        if named(target) {
+            return Uri::parse(target);
+        }
+        if let Some(rest) = target.strip_prefix("//") {
+            return Uri::parse(&format!("{}://{rest}", self.scheme.text()));
+        }
+        let (path, query) = cut(target);
+        let (path, query) = if path.is_empty() {
+            let path = if self.path.is_empty() {
+                "/".to_owned()
+            } else {
+                self.path.clone()
+            };
+            (path, query.or(self.query.as_deref()))
+        } else if path.starts_with('/') {
+            (dots(path), query)
+        } else {
+            (dots(&merged(&self.path, path)), query)
+        };
+        let tail = query.map(|query| format!("?{query}")).unwrap_or_default();
+        Uri::parse(&format!(
+            "{}://{}{}{tail}",
+            self.scheme.text(),
+            self.authority(),
+            path
+        ))
+    }
 }
 
 struct Part<'a>(&'a str);
@@ -175,6 +217,47 @@ impl Part<'_> {
             at += if escaped { 3 } else { 1 };
         }
         Ok(())
+    }
+}
+
+fn named(target: &str) -> bool {
+    let stop = target.find(['/', '?', '#']).unwrap_or(target.len());
+    target[..stop].contains(':')
+}
+
+fn cut(target: &str) -> (&str, Option<&str>) {
+    match target.split_once('?') {
+        Some((path, query)) => (path, Some(query)),
+        None => (target, None),
+    }
+}
+
+fn merged(base: &str, rel: &str) -> String {
+    match base.rsplit_once('/') {
+        Some((dir, _)) => format!("{dir}/{rel}"),
+        None => format!("/{rel}"),
+    }
+}
+
+fn dots(path: &str) -> String {
+    let mut out = Vec::new();
+    for part in path.split('/') {
+        match part {
+            "." => {}
+            ".." => {
+                let _ = out.pop();
+            }
+            other => out.push(other),
+        }
+    }
+    let mut text = out.join("/");
+    if path.starts_with('/') && !text.starts_with('/') {
+        text.insert(0, '/');
+    }
+    if text.is_empty() {
+        "/".to_owned()
+    } else {
+        text
     }
 }
 
