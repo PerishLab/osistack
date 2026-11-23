@@ -19,6 +19,15 @@ fn usage() {
     assert!(matches!(command(&["--write-out"]), Err(Error::Usage)));
     assert!(matches!(command(&["-H"]), Err(Error::Usage)));
     assert!(matches!(command(&["--header"]), Err(Error::Usage)));
+    assert!(matches!(command(&["--retry"]), Err(Error::Usage)));
+    assert!(matches!(
+        command(&["--retry", "abc", "http://a/"]),
+        Err(Error::Usage)
+    ));
+    assert!(matches!(
+        command(&["--retry", "-1", "http://a/"]),
+        Err(Error::Usage)
+    ));
     assert!(matches!(
         command(&["--header", "X-Test", "http://a/"]),
         Err(Error::Usage)
@@ -190,4 +199,33 @@ fn headed() {
     let seen = String::from_utf8(server.captured()).unwrap();
     assert!(seen.contains("x-test: one\r\n"), "{seen}");
     assert!(seen.contains("x-more: two\r\n"), "{seen}");
+}
+
+#[test]
+fn retrying() {
+    use std::io::Write;
+    use std::net::TcpListener;
+    use std::thread;
+    let ok = b"HTTP/1.1 200 OK\r\ncontent-length: 2\r\n\r\nok";
+    let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+    let port = listener.local_addr().unwrap().port();
+    let server = thread::spawn(move || {
+        drop(listener.accept().unwrap().0);
+        let (mut peer, _) = listener.accept().unwrap();
+        let _ = peer.write_all(ok);
+    });
+    let target = format!("http://127.0.0.1:{port}/path");
+    let response = command(&["--retry", "1", &target]).unwrap();
+    assert_eq!(response.head.status.get(), 200);
+    assert_eq!(response.body, b"ok");
+    server.join().unwrap();
+    let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+    let port = listener.local_addr().unwrap().port();
+    let server = thread::spawn(move || {
+        drop(listener.accept().unwrap().0);
+        drop(listener.accept().unwrap().0);
+    });
+    let target = format!("http://127.0.0.1:{port}/path");
+    assert!(command(&["--retry", "1", &target]).is_err());
+    server.join().unwrap();
 }

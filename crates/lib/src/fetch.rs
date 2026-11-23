@@ -47,7 +47,14 @@ pub fn driven(mut client: Client, args: &[&str]) -> Result<Applied, Error> {
         client.total = total;
     }
     client.extra = taken.extra;
-    let response = client.fetch(taken.method, &uri, &taken.body)?;
+    let mut result = client.fetch(taken.method.clone(), &uri, &taken.body);
+    for _ in 0..taken.retry {
+        if result.is_ok() {
+            break;
+        }
+        result = client.fetch(taken.method.clone(), &uri, &taken.body);
+    }
+    let response = result?;
     if taken.fail && response.head.status.get() >= 400 {
         return Err(Error::Status);
     }
@@ -76,6 +83,7 @@ struct Parsed {
     total: Option<Duration>,
     written: Option<String>,
     extra: Vec<Field>,
+    retry: u32,
 }
 
 impl Parsed {
@@ -94,6 +102,7 @@ impl Parsed {
             total: None,
             written: None,
             extra: Vec::new(),
+            retry: 0,
         };
         let mut at = 0;
         while at < args.len() {
@@ -118,6 +127,10 @@ impl Parsed {
             }
             "-H" | "--header" => {
                 self.extra.push(header(needed(args, at)?)?);
+                Ok(at + 2)
+            }
+            "--retry" => {
+                self.retry = count(needed(args, at)?)?;
                 Ok(at + 2)
             }
             "-o" | "--output" => {
@@ -176,6 +189,10 @@ fn header(text: &str) -> Result<Field, Error> {
     let value = value.strip_prefix(' ').unwrap_or(value);
     let value = Value::new(value.as_bytes()).map_err(|_| Error::Usage)?;
     Ok(Field { name, value })
+}
+
+fn count(text: &str) -> Result<u32, Error> {
+    text.parse().map_err(|_| Error::Usage)
 }
 
 fn needed<'a>(args: &[&'a str], at: usize) -> Result<&'a str, Error> {
