@@ -3,7 +3,11 @@ use crypto::{Aead, Group, Hash};
 use tls::{Content, Error, Layer, Opened, Schedule};
 
 pub fn table() -> Vec<(&'static str, Check)> {
-    vec![("record-protection", records as Check)]
+    vec![
+        ("record-protection", records as Check),
+        ("aes-gcm", aes as Check),
+        ("chacha20-poly1305", chacha as Check),
+    ]
 }
 
 fn start(group: Group, own: u8, peer: u8) -> Vec<u8> {
@@ -94,4 +98,44 @@ fn records() {
         let mut sender = layer(hash, &shared, true, aead);
         assert_eq!(sender.protect(Content::Handshake, b"", 0), Err(Error::Kind));
     }
+}
+
+fn suite(pairs: &[(Hash, Aead)]) {
+    let shared = start(Group::X25519, 1, 2);
+    for &(hash, aead) in pairs {
+        trip(
+            hash,
+            aead,
+            &shared,
+            Case {
+                content: Content::Application,
+                data: b"ping",
+                pad: 0,
+            },
+        );
+        trip(
+            hash,
+            aead,
+            &shared,
+            Case {
+                content: Content::Handshake,
+                data: b"finished-message",
+                pad: 7,
+            },
+        );
+        let mut sender = layer(hash, &shared, true, aead);
+        assert_eq!(sender.protect(Content::Handshake, b"", 0), Err(Error::Kind));
+    }
+}
+
+fn aes() {
+    suite(&[
+        (Hash::Sha256, Aead::Aes128),
+        (Hash::Sha256, Aead::Aes256),
+        (Hash::Sha384, Aead::Aes256),
+    ]);
+}
+
+fn chacha() {
+    suite(&[(Hash::Sha256, Aead::Chacha)]);
 }
