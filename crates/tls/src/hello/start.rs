@@ -1,0 +1,59 @@
+use crate::error::Error;
+use crate::extension::{Share, Typed};
+use crate::hello::Offer;
+use crate::message::{Kind, Message};
+use crypto::{Hash, Running};
+
+pub struct Hello {
+    offer: Offer,
+    spoken: Vec<u8>,
+    digest: Running,
+}
+
+impl Hello {
+    pub fn start(
+        host: &[u8],
+        protocols: &[Vec<u8>],
+        share: Share,
+        random: [u8; 32],
+    ) -> Result<Self, Error> {
+        let extensions = vec![
+            Typed::Name(Some(host.to_vec())).write()?,
+            Typed::Groups(vec![share.group]).write()?,
+            Typed::Algorithms(vec![0x0403, 0x0804]).write()?,
+            Typed::Protocols(protocols.to_vec()).write()?,
+            Typed::Versions(vec![0x0304]).write()?,
+            Typed::Shares(vec![share]).write()?,
+        ];
+        let offer = Offer {
+            random,
+            session: Vec::new(),
+            suites: vec![0x1301, 0x1303, 0x1302],
+            extensions,
+        };
+        let spoken = Message {
+            kind: Kind::Offer,
+            body: offer.write()?,
+        }
+        .write()?;
+        let mut digest = Running::new(Hash::Sha256);
+        digest.update(&spoken);
+        Ok(Self {
+            offer,
+            spoken,
+            digest,
+        })
+    }
+
+    pub fn offer(&self) -> &Offer {
+        &self.offer
+    }
+
+    pub fn spoken(&self) -> &[u8] {
+        &self.spoken
+    }
+
+    pub fn digest(&self) -> Vec<u8> {
+        self.digest.peek()
+    }
+}
