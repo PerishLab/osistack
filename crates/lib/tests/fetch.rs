@@ -141,6 +141,14 @@ fn located() {
     assert_eq!(response.body, b"ok");
     let _ = src.captured();
     let _ = dest.captured();
+    let head =
+        b"HTTP/1.1 302 Found\r\nLocation: http://127.0.0.1:9/next\r\nContent-Length: 0\r\n\r\n"
+            .to_vec();
+    let src = Server::replying(vec![head]);
+    let target = format!("http://127.0.0.1:{}/old", src.port);
+    let response = command(&[&target]).unwrap();
+    assert_eq!(response.head.status.get(), 302);
+    let _ = src.captured();
     assert!(matches!(command(&["-fsSL"]), Err(Error::Usage)));
     assert!(matches!(
         command(&[
