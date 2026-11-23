@@ -119,3 +119,34 @@ fn records() {
         );
     }
 }
+
+fn prefix(wire: &[u8], size: usize) {
+    assert_eq!(Record::parse(&wire[..size]), Ok(None), "{size}");
+}
+
+#[test]
+fn prefixes() {
+    let mut dice = Dice(0x51a7_e11e_c0de_0001);
+    let mut incomplete = 0;
+    for _ in 0..300 {
+        let content = [
+            Content::Change,
+            Content::Alert,
+            Content::Handshake,
+            Content::Application,
+        ][dice.below(4)];
+        let size = [0, 1, 20, 200, 1024][dice.below(5)];
+        let record = Record {
+            content,
+            version: dice.next() as u16,
+            fragment: dice.bytes(size),
+        };
+        let wire = record.write().unwrap();
+        assert_eq!(Record::parse(&wire), Ok(Some((record, wire.len()))));
+        for size in 0..wire.len() {
+            prefix(&wire, size);
+            incomplete += 1;
+        }
+    }
+    assert!(incomplete > 0);
+}
