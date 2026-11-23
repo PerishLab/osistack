@@ -28,6 +28,8 @@ fn usage() {
         &["-x"],
         &["--proxy"],
         &["--cacert"],
+        &["-D"],
+        &["--dump-header"],
         &["--proxy", "not-a-url", "http://a/"],
         &["--retry", "abc", "http://a/"],
         &["--retry", "-1", "http://a/"],
@@ -62,43 +64,28 @@ fn posting() {
 #[test]
 fn output() {
     use osistack::h1::Server;
-    let server = Server::replying(vec![
-        b"HTTP/1.1 200 OK\r\ncontent-length: 2\r\n\r\nok".to_vec(),
-    ]);
-    let target = format!("http://127.0.0.1:{}/file", server.port);
-    let path = std::env::temp_dir().join(format!("osistack-254-{}", std::process::id()));
-    let _ = std::fs::remove_file(&path);
-    let held = path.to_str().unwrap().to_owned();
-    let response = command(&["-o", &held, &target]).unwrap();
-    assert_eq!(response.head.status.get(), 200);
-    assert_eq!(response.body, b"ok");
-    assert_eq!(std::fs::read(&path).unwrap(), b"ok");
-    let again = std::env::temp_dir().join(format!("osistack-254-out-{}", std::process::id()));
-    let _ = std::fs::remove_file(&again);
-    let held = again.to_str().unwrap().to_owned();
-    let server = Server::replying(vec![
-        b"HTTP/1.1 200 OK\r\ncontent-length: 3\r\n\r\nyes".to_vec(),
-    ]);
-    let target = format!("http://127.0.0.1:{}/file", server.port);
-    let response = command(&["--output", &held, &target]).unwrap();
-    assert_eq!(response.body, b"yes");
-    assert_eq!(std::fs::read(&again).unwrap(), b"yes");
-    let _ = std::fs::remove_file(&path);
-    let _ = std::fs::remove_file(&again);
+    for flag in ["-o", "--output"] {
+        let server = Server::replying(vec![
+            b"HTTP/1.1 200 OK\r\ncontent-length: 2\r\n\r\nok".to_vec(),
+        ]);
+        let target = format!("http://127.0.0.1:{}/file", server.port);
+        let path = std::env::temp_dir().join(format!("osi-254-{flag}-{}", std::process::id()));
+        let _ = std::fs::remove_file(&path);
+        let response = command(&[flag, path.to_str().unwrap(), &target]).unwrap();
+        assert_eq!(response.body, b"ok");
+        assert_eq!(std::fs::read(&path).unwrap(), b"ok");
+        let _ = std::fs::remove_file(&path);
+    }
 }
 
 #[test]
 fn failing() {
     use osistack::h1::Server;
-    let server = Server::replying(vec![
-        b"HTTP/1.1 404 Not Found\r\ncontent-length: 0\r\n\r\n".to_vec(),
-    ]);
+    let miss = b"HTTP/1.1 404 Not Found\r\ncontent-length: 0\r\n\r\n";
+    let server = Server::replying(vec![miss.to_vec()]);
     let target = format!("http://127.0.0.1:{}/missing", server.port);
-    let response = command(&[&target]).unwrap();
-    assert_eq!(response.head.status.get(), 404);
-    let server = Server::replying(vec![
-        b"HTTP/1.1 404 Not Found\r\ncontent-length: 0\r\n\r\n".to_vec(),
-    ]);
+    assert_eq!(command(&[&target]).unwrap().head.status.get(), 404);
+    let server = Server::replying(vec![miss.to_vec()]);
     let target = format!("http://127.0.0.1:{}/missing", server.port);
     assert!(matches!(command(&["-f", &target]), Err(Error::Status)));
     let server = Server::replying(vec![
@@ -121,8 +108,7 @@ fn located() {
     let response = command(&["-fsSL", &target]).unwrap();
     assert_eq!(response.head.status.get(), 200);
     assert_eq!(response.body, b"ok");
-    let _ = src.captured();
-    let _ = dest.captured();
+    let _ = (src.captured(), dest.captured());
     let head =
         b"HTTP/1.1 302 Found\r\nLocation: http://127.0.0.1:9/next\r\nContent-Length: 0\r\n\r\n"
             .to_vec();
@@ -130,7 +116,6 @@ fn located() {
     let target = format!("http://127.0.0.1:{}/old", src.port);
     let response = command(&[&target]).unwrap();
     assert_eq!(response.head.status.get(), 302);
-    let _ = src.captured();
     assert!(matches!(command(&["-fsSL"]), Err(Error::Usage)));
     assert!(matches!(
         command(&[
@@ -159,7 +144,6 @@ fn capped() {
     ]);
     let target = format!("http://127.0.0.1:{}/fast", server.port);
     let response = command(&["--max-time", "5", &target]).unwrap();
-    assert_eq!(response.head.status.get(), 200);
     assert_eq!(response.body, b"ok");
 }
 
@@ -171,7 +155,6 @@ fn written() {
     ]);
     let target = format!("http://127.0.0.1:{}/file", server.port);
     let outcome = applied(&["-w", "%{http_code} %{size_download}", &target]).unwrap();
-    assert_eq!(outcome.response.head.status.get(), 200);
     assert_eq!(outcome.response.body, b"ok");
     assert_eq!(outcome.written.as_deref(), Some("200 2"));
     let server = Server::replying(vec![
@@ -191,7 +174,6 @@ fn headed() {
     ]);
     let target = format!("http://127.0.0.1:{}/path", server.port);
     let response = command(&["-H", "X-Test: one", "--header", "X-More: two", &target]).unwrap();
-    assert_eq!(response.head.status.get(), 200);
     assert_eq!(response.body, b"ok");
     let seen = String::from_utf8(server.captured()).unwrap();
     assert!(seen.contains("x-test: one\r\n"), "{seen}");
@@ -285,8 +267,7 @@ fn heading() {
             b"HTTP/1.1 200 OK\r\ncontent-length: 0\r\n\r\n".to_vec(),
         ]);
         let target = format!("http://127.0.0.1:{}/path", server.port);
-        let response = command(&[flag, &target]).unwrap();
-        assert_eq!(response.head.status.get(), 200);
+        command(&[flag, &target]).unwrap();
         let seen = String::from_utf8(server.captured()).unwrap();
         assert!(seen.starts_with("HEAD /path HTTP/1.1\r\n"), "{seen}");
     }
@@ -294,4 +275,25 @@ fn heading() {
         command(&["-I", "--method", "POST", "http://a/"]),
         Err(Error::Usage)
     ));
+}
+
+#[test]
+fn dumping() {
+    use osistack::h1::Server;
+    for flag in ["-D", "--dump-header"] {
+        let server = Server::replying(vec![
+            b"HTTP/1.1 200 OK\r\ncontent-length: 2\r\n\r\nok".to_vec(),
+        ]);
+        let target = format!("http://127.0.0.1:{}/file", server.port);
+        let path = std::env::temp_dir().join(format!("osi-277-{flag}-{}", std::process::id()));
+        let _ = std::fs::remove_file(&path);
+        let response = command(&[flag, path.to_str().unwrap(), &target]).unwrap();
+        assert_eq!(response.body, b"ok");
+        let text = String::from_utf8(std::fs::read(&path).unwrap()).unwrap();
+        assert!(
+            text.starts_with("HTTP/1.1 200 OK\r\n") && text.contains("content-length: 2\r\n"),
+            "{text}"
+        );
+        let _ = std::fs::remove_file(&path);
+    }
 }

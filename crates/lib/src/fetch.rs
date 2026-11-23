@@ -78,6 +78,9 @@ pub fn driven(mut client: Client, args: &[&str]) -> Result<Applied, Error> {
     if let Some(path) = taken.output {
         fs::write(path, &response.body)?;
     }
+    if let Some(path) = taken.dump {
+        fs::write(path, listed(&response.head))?;
+    }
     let written = taken
         .written
         .as_deref()
@@ -89,6 +92,18 @@ fn expand(response: &Response, format: &str) -> String {
     format
         .replace("%{http_code}", &response.head.status.get().to_string())
         .replace("%{size_download}", &response.body.len().to_string())
+}
+
+fn listed(head: &h1::Head) -> String {
+    let mut out = format!("HTTP/1.1 {} {}\r\n", head.status.get(), head.reason);
+    for field in &head.fields {
+        out.push_str(field.name.text());
+        out.push_str(": ");
+        out.push_str(&String::from_utf8_lossy(field.value.bytes()));
+        out.push_str("\r\n");
+    }
+    out.push_str("\r\n");
+    out
 }
 
 struct Parsed {
@@ -106,6 +121,7 @@ struct Parsed {
     follow: bool,
     head: bool,
     cacert: Option<String>,
+    dump: Option<String>,
 }
 
 impl Parsed {
@@ -130,6 +146,7 @@ impl Parsed {
             follow: false,
             head: false,
             cacert: None,
+            dump: None,
         };
         let mut at = 0;
         while at < args.len() {
@@ -194,6 +211,10 @@ impl Parsed {
             }
             "--cacert" => {
                 self.cacert = Some(needed(args, at)?.to_owned());
+                Ok(at + 2)
+            }
+            "-D" | "--dump-header" => {
+                self.dump = Some(needed(args, at)?.to_owned());
                 Ok(at + 2)
             }
             "-I" | "--head" => {
