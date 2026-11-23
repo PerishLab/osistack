@@ -1,4 +1,5 @@
-use http::{Class, Error, Method, Name, Status, Value};
+use http::{Class, Error, Method, Name, Status, Uri, Value};
+use std::net::Ipv6Addr;
 
 const TOKEN: &[u8] =
     b"abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!#$%&'*+-.^_`|~";
@@ -51,6 +52,64 @@ impl Dice {
             bytes.pop();
         }
         bytes
+    }
+
+    fn host(&mut self) -> String {
+        let count = 1 + self.below(24);
+        let alphabet = b"abcdefghijklmnopqrstuvwxyz0123456789-.";
+        (0..count)
+            .map(|_| alphabet[self.below(alphabet.len())] as char)
+            .collect()
+    }
+
+    fn piece(&mut self, query: bool) -> String {
+        let count = self.below(24);
+        (0..count)
+            .map(|_| {
+                if self.below(8) == 0 {
+                    format!("%{:02X}", self.below(256))
+                } else {
+                    let extra = [b'?'][0..query as usize].iter();
+                    let mut set = b"abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-._~!$&'()*+,;=:@/".to_vec();
+                    set.extend(extra.copied());
+                    (set[self.below(set.len())] as char).to_string()
+                }
+            })
+            .collect()
+    }
+
+    fn located(&mut self) -> String {
+        let https = self.below(2) == 0;
+        let scheme = if https { "https" } else { "http" };
+        let host = if self.below(4) == 0 {
+            let high = self.next() as u128;
+            let low = self.next() as u128;
+            format!("[{}]", Ipv6Addr::from((high << 64) | low))
+        } else {
+            self.host()
+        };
+        let usual: u16 = if https { 443 } else { 80 };
+        let port = match self.below(3) {
+            0 => None,
+            1 => Some(usual),
+            _ => Some(1 + self.below(65535) as u16),
+        };
+        let authority = match port {
+            Some(number) => format!("{host}:{number}"),
+            None => host,
+        };
+        let path = format!("/{}", self.piece(false));
+        let query = if self.below(2) == 0 {
+            format!("?{}", self.piece(true))
+        } else {
+            String::new()
+        };
+        let fragment = if self.below(4) == 0 {
+            format!("#{}", self.piece(true))
+        } else {
+            String::new()
+        };
+        format!("{scheme}://{authority}{path}{query}{fragment}")
     }
 }
 
@@ -126,5 +185,55 @@ fn refused() {
             padded.push(pad);
         }
         assert_eq!(Value::new(&padded), Err(Error::Padding), "{padded:?}");
+    }
+}
+
+fn same(left: &Uri, right: &Uri) {
+    assert_eq!(left.scheme(), right.scheme());
+    assert_eq!(left.host(), right.host());
+    assert_eq!(left.port(), right.port());
+    assert_eq!(left.authority(), right.authority());
+    assert_eq!(left.target(), right.target());
+}
+
+fn written(uri: &Uri) -> String {
+    format!(
+        "{}://{}{}",
+        uri.scheme().text(),
+        uri.authority(),
+        uri.target()
+    )
+}
+
+#[test]
+fn uris() {
+    let mut dice = Dice::new(17);
+    for _ in 0..800 {
+        let text = dice.located();
+        let uri = Uri::parse(&text).unwrap_or_else(|_| panic!("{text}"));
+        same(&uri, &Uri::parse(&written(&uri)).unwrap());
+    }
+}
+
+#[test]
+fn rejected() {
+    let mut dice = Dice::new(19);
+    for _ in 0..400 {
+        let text = dice.located();
+        assert!(Uri::parse(&text).is_ok(), "{text}");
+        assert!(Uri::parse(&format!(" {text}")).is_err());
+        assert!(Uri::parse(&format!("{text}%")).is_err());
+        assert!(Uri::parse(&text.replacen("://", "://u@", 1)).is_err());
+    }
+    for text in [
+        "http://a:0/",
+        "http://a:65536/",
+        "http://u@a/",
+        "http://a/%zz",
+        "http://a/%",
+        "https://[::1]:0/",
+        "ftp://a/",
+    ] {
+        assert!(Uri::parse(text).is_err(), "{text}");
     }
 }
