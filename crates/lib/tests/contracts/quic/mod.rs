@@ -1,4 +1,5 @@
 mod ecn;
+mod gso;
 mod integrity;
 mod protect;
 mod update;
@@ -17,6 +18,7 @@ pub fn table() -> Vec<(&'static str, Check)> {
         ("connection-id", ident as Check),
     ];
     rows.extend(ecn::table());
+    rows.extend(gso::table());
     rows.extend(protect::table());
     rows.extend(update::table());
     rows.extend(integrity::table());
