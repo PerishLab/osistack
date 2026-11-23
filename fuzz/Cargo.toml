@@ -1,0 +1,62 @@
+[package]
+name = "osistack-fuzz"
+version = "0.0.0"
+edition = "2024"
+license = "MIT"
+publish = false
+
+[package.metadata]
+cargo-fuzz = true
+
+[dependencies]
+libfuzzer-sys = "0.4"
+h1 = { package = "osistack-h1", path = "../crates/h1" }
+h2 = { package = "osistack-h2", path = "../crates/h2" }
+h3 = { package = "osistack-h3", path = "../crates/h3" }
+quic = { package = "osistack-quic", path = "../crates/quic" }
+tls = { package = "osistack-tls", path = "../crates/tls" }
+
+[workspace]
+members = ["."]
+
+[[bin]]
+name = "tls"
+path = "fuzz_targets/tls.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "quic"
+path = "fuzz_targets/quic.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "h1"
+path = "fuzz_targets/h1.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "h2"
+path = "fuzz_targets/h2.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "hpack"
+path = "fuzz_targets/hpack.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "qpack"
+path = "fuzz_targets/qpack.rs"
+test = false
+doc = false
+bench = false

@@ -62,6 +62,16 @@ ignored and do not gate default `cargo test` or Guard.
 |---|---|---|---|---|---|---|
 | Wycheproof | https://github.com/google/wycheproof | Apache-2.0 | 2026-11-23, text vectors as shipped in the BoringSSL third_party snapshot checked on this machine | Specification and vectors, runtime only, not copied | Ignored osistack-crypto AEAD and X25519 tests | environment variable `OSISTACK_WYCHEPROOF` (a directory of the official `*_test.txt` files) |
 
+## Fuzzing
+
+The out-of-workspace `fuzz/` crate depends on these packages to build libFuzzer
+targets. They are not workspace members, do not enter the nine published
+crates, and do not gate default `cargo test` or Guard.
+
+| Source | Upstream | SPDX license | Checked | Level | osistack module | Copied notice |
+|---|---|---|---|---|---|---|
+| libfuzzer-sys | https://github.com/rust-fuzz/libfuzzer | (MIT OR Apache-2.0) AND NCSA | crates.io 0.4.13, 2026-11-24 | Build and runtime dependency of the out-of-workspace fuzz crate; not copied into this repository | `fuzz/` cargo-fuzz targets | none |
+
 ## Planned, not yet adopted
 
 These tools are intended for the verification ladder but nothing here uses them

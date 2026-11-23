@@ -18,11 +18,11 @@ param = 4
 path = 3
 
 [module]
-roots = ["crates/*/src", "crates/*/tests"]
+roots = ["crates/*/src", "crates/*/tests", "fuzz", "fuzz/fuzz_targets"]
 
 [scan]
 exclude = ["**/target/**"]
-include = ["crates/**/*.rs"]
+include = ["crates/**/*.rs", "fuzz/**/*.rs", "fuzz/fuzz_targets/**/*.rs"]
 
 [word]
 single = true
