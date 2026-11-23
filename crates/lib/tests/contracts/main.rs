@@ -55,6 +55,14 @@ fn supported() {
             (Area::Tls, "explicit-pem-roots"),
             (Area::Tls, "key-schedule"),
             (Area::Tls, "record-protection"),
+            (Area::Http2, "settings"),
+            (Area::Http2, "headers"),
+            (Area::Http2, "continuation"),
+            (Area::Http2, "data"),
+            (Area::Http2, "flow-control"),
+            (Area::Http2, "reset-stream"),
+            (Area::Http2, "goaway"),
+            (Area::Http2, "ping"),
             (Area::Http2, "hpack"),
             (Area::Quic, "retry-integrity"),
             (Area::Quic, "version-negotiation"),
@@ -133,10 +141,6 @@ fn pending() {
         (Area::Http1, "phase-timeout"),
         (Area::Tls, "sni"),
         (Area::Tls, "alpn"),
-        (Area::Http2, "settings"),
-        (Area::Http2, "headers"),
-        (Area::Http2, "data"),
-        (Area::Http2, "flow-control"),
         (Area::Quic, "v1"),
         (Area::Quic, "retry-handshake"),
         (Area::Quic, "ecn"),
@@ -163,9 +167,9 @@ fn unique() {
             + profile.count(State::Unverified),
         profile.capabilities.len()
     );
-    assert_eq!(profile.count(State::Supported), 46);
+    assert_eq!(profile.count(State::Supported), 54);
     assert_eq!(profile.count(State::Excluded), 32);
-    assert_eq!(profile.count(State::Unverified), 25);
+    assert_eq!(profile.count(State::Unverified), 17);
 }
 
 #[test]
