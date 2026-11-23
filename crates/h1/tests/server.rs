@@ -16,7 +16,8 @@ fn speak(port: u16, body: &[u8]) -> Vec<u8> {
 fn replies() {
     let server = Server::replying(vec![
         b"HTTP/1.1 200 OK\r\nContent-Length: 4\r\n\r\nbody".to_vec(),
-    ]);
+    ])
+    .unwrap();
     let port = server.port;
     let got = speak(port, b"GET /path?q=1 HTTP/1.1\r\nhost: 127.0.0.1\r\n\r\n");
     assert_eq!(got, b"HTTP/1.1 200 OK\r\nContent-Length: 4\r\n\r\nbody");
@@ -26,7 +27,7 @@ fn replies() {
 
 #[test]
 fn captures() {
-    let server = Server::replying(vec![b"HTTP/1.1 204 No Content\r\n\r\n".to_vec()]);
+    let server = Server::replying(vec![b"HTTP/1.1 204 No Content\r\n\r\n".to_vec()]).unwrap();
     let port = server.port;
     let body = format!(
         "POST /path?q=1 HTTP/1.1\r\nhost: 127.0.0.1:{port}\r\ncontent-length: 5\r\n\r\nhello"
@@ -41,7 +42,8 @@ fn holds() {
     let server = Server::holding(vec![
         b"HTTP/1.1 200 OK\r\nContent-Length: 1\r\n\r\na".to_vec(),
         b"HTTP/1.1 200 OK\r\nContent-Length: 1\r\n\r\nb".to_vec(),
-    ]);
+    ])
+    .unwrap();
     let mut peer = TcpStream::connect(("127.0.0.1", server.port)).unwrap();
     peer.set_read_timeout(Some(Duration::from_secs(2))).unwrap();
     peer.write_all(b"GET /one HTTP/1.1\r\nhost: 127.0.0.1\r\n\r\n")

@@ -28,18 +28,18 @@ fn get() -> Method {
 }
 
 fn body(parts: &[&str]) -> Vec<u8> {
-    let server = Server::replying(text(parts));
+    let server = Server::replying(text(parts)).unwrap();
     client().fetch(get(), &server.uri, b"").unwrap().body
 }
 
 fn fails(parts: &[&str]) -> Error {
-    let server = Server::replying(text(parts));
+    let server = Server::replying(text(parts)).unwrap();
     client().fetch(get(), &server.uri, b"").unwrap_err()
 }
 
 fn length() {
     let sent = ["HTTP/1.1 200 OK\r\nContent-Length: 5\r\nX-Kind: plain\r\n\r\nhello"];
-    let server = Server::replying(text(&sent));
+    let server = Server::replying(text(&sent)).unwrap();
     let response = client().fetch(get(), &server.uri, b"").unwrap();
     assert_eq!(response.head.status.get(), 200);
     assert_eq!(response.head.values("x-kind"), vec![&b"plain"[..]]);
@@ -59,7 +59,7 @@ fn chunked() {
 }
 
 fn closing() {
-    let server = Server::replying(text(&["HTTP/1.1 204 No Content\r\n\r\n"]));
+    let server = Server::replying(text(&["HTTP/1.1 204 No Content\r\n\r\n"])).unwrap();
     let port = server.port;
     client().fetch(get(), &server.uri, b"").unwrap();
     let seen = String::from_utf8(server.captured()).unwrap();
@@ -74,7 +74,7 @@ fn closing() {
 }
 
 fn legacy() {
-    let server = Server::replying(text(&["HTTP/1.0 200 OK\r\n\r\nuntil ", "the end"]));
+    let server = Server::replying(text(&["HTTP/1.0 200 OK\r\n\r\nuntil ", "the end"])).unwrap();
     let response = client().fetch(get(), &server.uri, b"").unwrap();
     assert_eq!(response.head.status.get(), 200);
     assert_eq!(response.body, b"until the end");
@@ -87,7 +87,7 @@ fn status() {
         ("301 Moved", 301),
     ] {
         let sent = format!("HTTP/1.1 {line}\r\nContent-Length: 4\r\n\r\ngone");
-        let server = Server::replying(text(&[sent.as_str()]));
+        let server = Server::replying(text(&[sent.as_str()])).unwrap();
         let response = client().fetch(get(), &server.uri, b"").unwrap();
         assert_eq!(response.head.status.get(), code);
         assert_eq!(response.body, b"gone");
@@ -101,7 +101,8 @@ fn framing() {
     for sent in [&sized[..], &chunks[..], &ended[..]] {
         assert_eq!(body(sent), b"abc");
     }
-    let server = Server::replying(text(&["HTTP/1.1 200 OK\r\nContent-Length: 500\r\n\r\n"]));
+    let server =
+        Server::replying(text(&["HTTP/1.1 200 OK\r\nContent-Length: 500\r\n\r\n"])).unwrap();
     let method = Method::new("HEAD").unwrap();
     let response = client().fetch(method, &server.uri, b"").unwrap();
     assert!(response.body.is_empty());
@@ -161,7 +162,7 @@ fn smuggling() {
     );
     let extra = "HTTP/1.1 200 OK\r\nContent-Length: 3\r\n\r\nabcHTTP/1.1 200 OK\r\nContent-Length: 4\r\n\r\nevil";
     assert_eq!(body(&[extra]), b"abc");
-    let server = Server::replying(text(&["HTTP/1.1 200 OK\r\nContent-Length: 0\r\n\r\n"]));
+    let server = Server::replying(text(&["HTTP/1.1 200 OK\r\nContent-Length: 0\r\n\r\n"])).unwrap();
     let method = Method::new("POST").unwrap();
     client().fetch(method, &server.uri, b"payload").unwrap();
     let seen = String::from_utf8(server.captured())
@@ -172,7 +173,8 @@ fn smuggling() {
 }
 
 fn loopback() {
-    let server = Server::replying(text(&["HTTP/1.1 200 OK\r\nContent-Length: 4\r\n\r\nbody"]));
+    let server =
+        Server::replying(text(&["HTTP/1.1 200 OK\r\nContent-Length: 4\r\n\r\nbody"])).unwrap();
     let response = client().fetch(get(), &server.uri, b"").unwrap();
     assert_eq!(response.head.status.get(), 200);
     assert_eq!(response.body, b"body");
@@ -182,7 +184,7 @@ fn loopback() {
 
 fn proxy() {
     let sent = ["HTTP/1.1 200 OK\r\nContent-Length: 4\r\n\r\nbody"];
-    let server = Server::replying(text(&sent));
+    let server = Server::replying(text(&sent)).unwrap();
     let port = server.port;
     let response = client().forward(get(), &server.uri, b"").unwrap();
     assert_eq!(response.head.status.get(), 200);
@@ -193,7 +195,7 @@ fn proxy() {
         seen.starts_with(&format!("GET {target} HTTP/1.1\r\n")),
         "{seen}"
     );
-    let server = Server::replying(text(&["HTTP/1.1 200 Connection Established\r\n\r\n"]));
+    let server = Server::replying(text(&["HTTP/1.1 200 Connection Established\r\n\r\n"])).unwrap();
     let port = server.port;
     let response = client().tunnel(&server.uri).unwrap();
     assert_eq!(response.head.status.get(), 200);
@@ -211,7 +213,8 @@ fn pooling() {
     let server = Server::holding(vec![
         b"HTTP/1.1 200 OK\r\nContent-Length: 1\r\n\r\na".to_vec(),
         b"HTTP/1.1 200 OK\r\nContent-Length: 1\r\n\r\nb".to_vec(),
-    ]);
+    ])
+    .unwrap();
     let first = format!("http://127.0.0.1:{}/one", server.port);
     let second = format!("http://127.0.0.1:{}/two", server.port);
     let one = osistack::http::Uri::parse(&first).unwrap();
@@ -226,10 +229,11 @@ fn pooling() {
 }
 
 fn redirect() {
-    let dest = Server::replying(text(&["HTTP/1.1 200 OK\r\nContent-Length: 3\r\n\r\nend"]));
+    let dest =
+        Server::replying(text(&["HTTP/1.1 200 OK\r\nContent-Length: 3\r\n\r\nend"])).unwrap();
     let location = format!("http://127.0.0.1:{}/dest", dest.port);
     let head = format!("HTTP/1.1 302 Found\r\nLocation: {location}\r\nContent-Length: 0\r\n\r\n");
-    let src = Server::replying(text(&[&head]));
+    let src = Server::replying(text(&[&head])).unwrap();
     let response = client().fetch(get(), &src.uri, b"").unwrap();
     assert_eq!(response.head.status.get(), 200);
     assert_eq!(response.body, b"end");
@@ -239,7 +243,7 @@ fn redirect() {
 
 fn lasting() {
     use std::time::Duration;
-    let server = Server::silent(Duration::from_millis(600));
+    let server = Server::silent(Duration::from_millis(600)).unwrap();
     let tight = osistack::Client {
         total: Duration::from_millis(80),
         connect: Duration::from_secs(5),
@@ -258,7 +262,7 @@ fn lasting() {
 fn phased() {
     use osistack::socket::{Error as Socket, Phase};
     use std::time::Duration;
-    let server = Server::silent(Duration::from_millis(600));
+    let server = Server::silent(Duration::from_millis(600)).unwrap();
     let tight = osistack::Client {
         read: Duration::from_millis(150),
         ..client()

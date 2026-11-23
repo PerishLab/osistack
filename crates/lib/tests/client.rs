@@ -16,7 +16,8 @@ fn get() -> Method {
 fn length() {
     let server = Server::replying(text(&[
         "HTTP/1.1 200 OK\r\nContent-Length: 5\r\nX-Kind: plain\r\n\r\nhello",
-    ]));
+    ]))
+    .unwrap();
     let response = client().fetch(get(), &server.uri, b"").unwrap();
     assert_eq!(response.head.status.get(), 200);
     assert_eq!(response.head.reason, "OK");
@@ -26,7 +27,7 @@ fn length() {
 
 #[test]
 fn wire() {
-    let server = Server::replying(text(&["HTTP/1.1 204 No Content\r\n\r\n"]));
+    let server = Server::replying(text(&["HTTP/1.1 204 No Content\r\n\r\n"])).unwrap();
     let port = server.port;
     client().fetch(get(), &server.uri, b"").unwrap();
     let seen = String::from_utf8(server.captured()).unwrap();
@@ -40,21 +41,23 @@ fn chunked() {
     let server = Server::replying(text(&[
         "HTTP/1.1 200 OK\r\nTransfer-Encoding: chunked\r\n\r\n",
         "5\r\nhello\r\n1;ext=1\r\n \r\n5\r\nworld\r\n0\r\n\r\n",
-    ]));
+    ]))
+    .unwrap();
     let response = client().fetch(get(), &server.uri, b"").unwrap();
     assert_eq!(response.body, b"hello world");
 }
 
 #[test]
 fn closing() {
-    let server = Server::replying(text(&["HTTP/1.0 200 OK\r\n\r\nuntil ", "the end"]));
+    let server = Server::replying(text(&["HTTP/1.0 200 OK\r\n\r\nuntil ", "the end"])).unwrap();
     let response = client().fetch(get(), &server.uri, b"").unwrap();
     assert_eq!(response.body, b"until the end");
 }
 
 #[test]
 fn head() {
-    let server = Server::replying(text(&["HTTP/1.1 200 OK\r\nContent-Length: 500\r\n\r\n"]));
+    let server =
+        Server::replying(text(&["HTTP/1.1 200 OK\r\nContent-Length: 500\r\n\r\n"])).unwrap();
     let method = Method::new("HEAD").unwrap();
     let response = client().fetch(method, &server.uri, b"").unwrap();
     assert!(response.body.is_empty());
@@ -65,7 +68,8 @@ fn head() {
 fn missing() {
     let server = Server::replying(text(&[
         "HTTP/1.1 404 Not Found\r\nContent-Length: 4\r\n\r\ngone",
-    ]));
+    ]))
+    .unwrap();
     let response = client().fetch(get(), &server.uri, b"").unwrap();
     assert_eq!(response.head.status.get(), 404);
     assert_eq!(response.body, b"gone");
@@ -75,7 +79,7 @@ fn missing() {
 fn interim() {
     let server = Server::replying(text(&[
         "HTTP/1.1 103 Early Hints\r\nLink: </a>\r\n\r\nHTTP/1.1 200 OK\r\nContent-Length: 2\r\n\r\nok",
-    ]));
+    ])).unwrap();
     let response = client().fetch(get(), &server.uri, b"").unwrap();
     assert_eq!(response.head.status.get(), 200);
     assert_eq!(response.body, b"ok");
@@ -83,7 +87,7 @@ fn interim() {
 
 #[test]
 fn post() {
-    let server = Server::replying(text(&["HTTP/1.1 200 OK\r\nContent-Length: 0\r\n\r\n"]));
+    let server = Server::replying(text(&["HTTP/1.1 200 OK\r\nContent-Length: 0\r\n\r\n"])).unwrap();
     let method = Method::new("POST").unwrap();
     client().fetch(method, &server.uri, b"payload").unwrap();
     let seen = String::from_utf8(server.captured()).unwrap();
@@ -94,7 +98,7 @@ fn post() {
 
 #[test]
 fn empty() {
-    let server = Server::replying(text(&["HTTP/1.1 200 OK\r\nContent-Length: 0\r\n\r\n"]));
+    let server = Server::replying(text(&["HTTP/1.1 200 OK\r\nContent-Length: 0\r\n\r\n"])).unwrap();
     let method = Method::new("POST").unwrap();
     client().fetch(method, &server.uri, b"").unwrap();
     let seen = String::from_utf8(server.captured()).unwrap();
@@ -105,7 +109,7 @@ fn empty() {
 fn split() {
     let whole = "HTTP/1.1 200 OK\r\nContent-Length: 6\r\nX-A: b\r\n\r\nabcdef";
     let parts = whole.bytes().map(|byte| vec![byte]).collect();
-    let server = Server::pausing(parts, Duration::from_millis(1));
+    let server = Server::pausing(parts, Duration::from_millis(1)).unwrap();
     let response = client().fetch(get(), &server.uri, b"").unwrap();
     assert_eq!(response.body, b"abcdef");
     assert_eq!(response.head.values("x-a"), vec![&b"b"[..]]);
@@ -170,7 +174,8 @@ fn peering() {
 #[ignore = "timing"]
 fn cycling() {
     for _ in 0..32 {
-        let server = Server::replying(text(&["HTTP/1.1 200 OK\r\nContent-Length: 4\r\n\r\nbody"]));
+        let server =
+            Server::replying(text(&["HTTP/1.1 200 OK\r\nContent-Length: 4\r\n\r\nbody"])).unwrap();
         let response = client().fetch(get(), &server.uri, b"").unwrap();
         assert_eq!(response.head.status.get(), 200);
         assert_eq!(response.body, b"body");

@@ -1,5 +1,5 @@
 use http::Uri;
-use std::io::{Read, Write};
+use std::io::{self, Read, Write};
 use std::net::{TcpListener, TcpStream};
 use std::thread::{self, JoinHandle};
 use std::time::Duration;
@@ -11,22 +11,20 @@ pub struct Server {
 }
 
 impl Server {
-    pub fn replying(parts: Vec<Vec<u8>>) -> Self {
+    pub fn replying(parts: Vec<Vec<u8>>) -> io::Result<Self> {
         Self::start(parts, Duration::ZERO, Duration::ZERO)
     }
 
-    pub fn pausing(parts: Vec<Vec<u8>>, gap: Duration) -> Self {
+    pub fn pausing(parts: Vec<Vec<u8>>, gap: Duration) -> io::Result<Self> {
         Self::start(parts, gap, Duration::ZERO)
     }
 
-    pub fn silent(hold: Duration) -> Self {
+    pub fn silent(hold: Duration) -> io::Result<Self> {
         Self::start(Vec::new(), Duration::ZERO, hold)
     }
 
-    pub fn holding(parts: Vec<Vec<u8>>) -> Self {
-        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
-        let port = listener.local_addr().unwrap().port();
-        let uri = Uri::parse(&format!("http://127.0.0.1:{port}/path?q=1")).unwrap();
+    pub fn holding(parts: Vec<Vec<u8>>) -> io::Result<Self> {
+        let (listener, port, uri) = bound()?;
         let handle = thread::spawn(move || {
             let (mut peer, _) = listener.accept().unwrap();
             let mut seen = Vec::new();
@@ -38,17 +36,15 @@ impl Server {
             }
             seen
         });
-        Self { uri, port, handle }
+        Ok(Self { uri, port, handle })
     }
 
     pub fn captured(self) -> Vec<u8> {
         self.handle.join().unwrap()
     }
 
-    fn start(parts: Vec<Vec<u8>>, gap: Duration, hold: Duration) -> Self {
-        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
-        let port = listener.local_addr().unwrap().port();
-        let uri = Uri::parse(&format!("http://127.0.0.1:{port}/path?q=1")).unwrap();
+    fn start(parts: Vec<Vec<u8>>, gap: Duration, hold: Duration) -> io::Result<Self> {
+        let (listener, port, uri) = bound()?;
         let handle = thread::spawn(move || {
             let (mut peer, _) = listener.accept().unwrap();
             let seen = take(&mut peer);
@@ -61,8 +57,19 @@ impl Server {
             thread::sleep(hold);
             seen
         });
-        Self { uri, port, handle }
+        Ok(Self { uri, port, handle })
     }
+}
+
+fn bound() -> io::Result<(TcpListener, u16, Uri)> {
+    let listener = TcpListener::bind("127.0.0.1:0")?;
+    let port = listener.local_addr()?.port();
+    let uri = Uri::parse(&format!("http://127.0.0.1:{port}/path?q=1")).map_err(fault)?;
+    Ok((listener, port, uri))
+}
+
+fn fault(error: http::Error) -> io::Error {
+    io::Error::new(io::ErrorKind::InvalidInput, error)
 }
 
 fn take(peer: &mut TcpStream) -> Vec<u8> {
