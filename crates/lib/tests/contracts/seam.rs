@@ -40,7 +40,7 @@ const SIGNED: &str = "\
 const MESSAGE: &[u8] = b"osistack seam";
 
 pub fn table() -> Vec<(&'static str, Check)> {
-    vec![("seam", seam as Check)]
+    vec![("seam", seam as Check), ("primitives", primitives as Check)]
 }
 
 fn hex(text: &str) -> Vec<u8> {
@@ -184,6 +184,68 @@ fn seam() {
             protect(aead, &shared);
         }
         finished(&shared);
+    }
+    signed();
+}
+
+fn hashed() {
+    for (hash, size) in [(Hash::Sha256, 32), (Hash::Sha384, 48), (Hash::Sha512, 64)] {
+        let one = hash.digest(b"abc");
+        assert_eq!(one.len(), size, "{hash:?}");
+        assert_eq!(one, hash.digest(b"abc"));
+        assert_ne!(one, hash.digest(b"abd"));
+    }
+}
+
+fn macs() {
+    for hash in [Hash::Sha256, Hash::Sha384] {
+        let tag = hmac::sign(hash, b"key", b"data").unwrap();
+        assert_eq!(hmac::verify(hash, b"key", b"data", &tag), Ok(()));
+        assert_eq!(hmac::verify(hash, b"key", b"other", &tag), Err(Error::Auth));
+        let mut flipped = tag.clone();
+        flipped[0] ^= 1;
+        assert_eq!(
+            hmac::verify(hash, b"key", b"data", &flipped),
+            Err(Error::Auth)
+        );
+    }
+    assert_eq!(
+        hmac::sign(Hash::Sha512, b"key", b"data"),
+        Err(Error::Unsupported)
+    );
+    assert_eq!(
+        hmac::verify(Hash::Sha512, b"key", b"data", &[0; 64]),
+        Err(Error::Unsupported)
+    );
+}
+
+fn derived() {
+    for hash in [Hash::Sha256, Hash::Sha384] {
+        let secret = Secret::extract(hash, b"salt", b"ikm").unwrap();
+        let one = secret.label(b"key", b"", hash.size()).unwrap();
+        let two = Secret::extract(hash, b"salt", b"ikm")
+            .unwrap()
+            .label(b"key", b"", hash.size())
+            .unwrap();
+        assert_eq!(one, two);
+        assert_eq!(one.len(), hash.size());
+        assert_ne!(one, secret.label(b"iv", b"", hash.size()).unwrap());
+    }
+    assert_eq!(
+        Secret::extract(Hash::Sha512, b"salt", b"ikm").err(),
+        Some(Error::Unsupported)
+    );
+}
+
+fn primitives() {
+    hashed();
+    macs();
+    derived();
+    for group in [Group::X25519, Group::Secp256r1] {
+        let shared = exchange(group);
+        for aead in [Aead::Aes128, Aead::Aes256, Aead::Chacha] {
+            protect(aead, &shared);
+        }
     }
     signed();
 }
