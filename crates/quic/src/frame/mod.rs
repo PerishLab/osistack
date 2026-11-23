@@ -1,4 +1,5 @@
 mod ack;
+mod opening;
 mod read;
 mod stream;
 mod write;
@@ -6,6 +7,7 @@ mod write;
 use crate::error::Error;
 
 pub use ack::{Ack, Ecn};
+pub use opening::Opening;
 pub use stream::Stream;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
