@@ -82,6 +82,7 @@ fn supported() {
             (Area::Http3, "goaway"),
             (Area::Http3, "alt-svc-discovery"),
             (Area::Crypto, "seam"),
+            (Area::Crypto, "primitives"),
         ]
     );
 }
@@ -145,7 +146,6 @@ fn pending() {
         (Area::Quic, "retry-handshake"),
         (Area::Quic, "ecn"),
         (Area::Quic, "gso"),
-        (Area::Crypto, "primitives"),
         (Area::Cli, "curl-subset"),
     ];
     for (area, name) in pending {
@@ -167,9 +167,9 @@ fn unique() {
             + profile.count(State::Unverified),
         profile.capabilities.len()
     );
-    assert_eq!(profile.count(State::Supported), 54);
+    assert_eq!(profile.count(State::Supported), 55);
     assert_eq!(profile.count(State::Excluded), 32);
-    assert_eq!(profile.count(State::Unverified), 17);
+    assert_eq!(profile.count(State::Unverified), 16);
 }
 
 #[test]
