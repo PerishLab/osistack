@@ -28,6 +28,16 @@ note = "Each crate has one responsibility, ten at most."
 path = ".cargo"
 note = "Cargo registry configuration."
 
+[[layout.seat]]
+path = "fuzz"
+note = "Out-of-workspace cargo-fuzz targets. Not a workspace crate."
+scan = ["fuzz/**/*.rs"]
+
+[[layout.seat]]
+path = "fuzz/fuzz_targets"
+note = "cargo-fuzz requires this directory name; it is the module root for the target sources so the path atom fuzz_targets is not judged as a child word."
+scan = ["fuzz/fuzz_targets/**/*.rs"]
+
 [[layout.file]]
 name = ["Cargo.toml", "Cargo.lock"]
 note = "The actual Rust workspace and locked dependency graph."
