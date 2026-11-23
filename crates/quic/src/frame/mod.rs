@@ -1,4 +1,5 @@
 mod ack;
+mod closing;
 mod flight;
 mod hearing;
 mod opening;
@@ -9,6 +10,7 @@ mod write;
 use crate::error::Error;
 
 pub use ack::{Ack, Ecn};
+pub use closing::Control;
 pub use flight::{Applied, Flight};
 pub use hearing::{Handshake, Hearing};
 pub use opening::Opening;
