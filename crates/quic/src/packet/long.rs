@@ -81,4 +81,9 @@ impl Long {
         }
         Ok(())
     }
+
+    pub fn size(&self) -> Result<usize, Error> {
+        let length = usize::try_from(self.length).map_err(|_| Error::Length)?;
+        self.offset.checked_add(length).ok_or(Error::Length)
+    }
 }
