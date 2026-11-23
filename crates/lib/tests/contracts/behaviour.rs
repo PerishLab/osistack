@@ -17,6 +17,7 @@ pub fn table() -> Vec<(&'static str, Check)> {
         ("smuggling-defense", smuggling as Check),
         ("redirect-policy", redirect as Check),
         ("total-timeout", lasting as Check),
+        ("phase-timeout", phased as Check),
         ("loopback-test-server", loopback as Check),
         ("proxy", proxy as Check),
     ]
@@ -250,6 +251,25 @@ fn lasting() {
     let _ = server.captured();
     assert!(
         matches!(outcome, Err(osistack::Error::Timeout)),
+        "{outcome:?}"
+    );
+}
+
+fn phased() {
+    use osistack::socket::{Error as Socket, Phase};
+    use std::time::Duration;
+    let server = Server::silent(Duration::from_millis(600));
+    let tight = osistack::Client {
+        read: Duration::from_millis(150),
+        ..client()
+    };
+    let outcome = tight.fetch(get(), &server.uri, b"");
+    let _ = server.captured();
+    assert!(
+        matches!(
+            outcome,
+            Err(osistack::Error::Socket(Socket::Timeout(Phase::Read)))
+        ),
         "{outcome:?}"
     );
 }

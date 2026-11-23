@@ -45,6 +45,7 @@ fn supported() {
             (Area::Http1, "smuggling-defense"),
             (Area::Http1, "redirect-policy"),
             (Area::Http1, "total-timeout"),
+            (Area::Http1, "phase-timeout"),
             (Area::Http1, "status-not-error"),
             (Area::Http1, "loopback-test-server"),
             (Area::Http1, "proxy"),
@@ -143,11 +144,7 @@ fn exclusions() {
 #[test]
 fn pending() {
     let profile = Profile::current();
-    let pending = [
-        (Area::Http1, "phase-timeout"),
-        (Area::Quic, "v1"),
-        (Area::Quic, "retry-handshake"),
-    ];
+    let pending = [(Area::Quic, "v1"), (Area::Quic, "retry-handshake")];
     for (area, name) in pending {
         assert_eq!(profile.state(area, name), Some(State::Unverified), "{name}");
     }
@@ -167,9 +164,9 @@ fn unique() {
             + profile.count(State::Unverified),
         profile.capabilities.len()
     );
-    assert_eq!(profile.count(State::Supported), 67);
+    assert_eq!(profile.count(State::Supported), 68);
     assert_eq!(profile.count(State::Excluded), 32);
-    assert_eq!(profile.count(State::Unverified), 4);
+    assert_eq!(profile.count(State::Unverified), 3);
 }
 
 #[test]
