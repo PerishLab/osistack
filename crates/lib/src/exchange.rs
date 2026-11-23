@@ -10,6 +10,11 @@ enum Body {
     Secure(Link),
 }
 
+pub(crate) enum Slot {
+    Plain { stream: Stream, data: Vec<u8> },
+    Secure { link: Link, data: Vec<u8> },
+}
+
 pub struct Exchange<'a> {
     body: Option<Body>,
     client: &'a Client,
@@ -35,8 +40,16 @@ impl<'a> Exchange<'a> {
     }
 
     pub fn resume(client: &'a Client, stream: Stream, data: Vec<u8>, deadline: Instant) -> Self {
+        Self::restore(client, Slot::Plain { stream, data }, deadline)
+    }
+
+    pub(crate) fn restore(client: &'a Client, slot: Slot, deadline: Instant) -> Self {
+        let (body, data) = match slot {
+            Slot::Plain { stream, data } => (Body::Plain(stream), data),
+            Slot::Secure { link, data } => (Body::Secure(link), data),
+        };
         Self {
-            body: Some(Body::Plain(stream)),
+            body: Some(body),
             client,
             data,
             deadline,
@@ -52,11 +65,18 @@ impl<'a> Exchange<'a> {
         Ok(())
     }
 
-    pub fn taken(self) -> (Stream, Vec<u8>) {
-        let Some(Body::Plain(stream)) = self.body else {
-            panic!("held");
-        };
-        (stream, self.data)
+    pub(crate) fn release(self) -> Slot {
+        match self.body {
+            Some(Body::Plain(stream)) => Slot::Plain {
+                stream,
+                data: self.data,
+            },
+            Some(Body::Secure(link)) => Slot::Secure {
+                link,
+                data: self.data,
+            },
+            None => panic!("held"),
+        }
     }
 
     fn limit(&self, phase: Duration) -> Result<Duration, Error> {
