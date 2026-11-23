@@ -156,12 +156,20 @@ fn absorb(digest: &mut Running, bytes: &[u8]) {
     digest.update(bytes);
 }
 
-pub fn answer(
+pub struct Spoken {
+    pub reply: Reply,
+    pub hello: Vec<u8>,
+    pub rest: Vec<u8>,
+    pub waiting: Waiting,
+    server: tls::Traffic,
+}
+
+pub fn spoken(
     hello: &Hello,
     held: &Held,
     secret: &[u8; 32],
     random: [u8; 32],
-) -> Result<(Reply, Vec<Record>, Waiting), Error> {
+) -> Result<Spoken, Error> {
     let taken = offered(hello.offer())?;
     if !hello.offer().suites.contains(&0x1301) {
         return Err(Error::Suites);
@@ -182,10 +190,10 @@ pub fn answer(
             Typed::Version(0x0304).write()?,
         ],
     };
-    let spoken = message(Kind::Reply, reply.write()?)?;
+    let start = message(Kind::Reply, reply.write()?)?;
     let mut digest = Running::new(Hash::Sha256);
     digest.update(hello.spoken());
-    digest.update(&spoken);
+    digest.update(&start);
     let schedule = tls::Schedule::new(Hash::Sha256, &shared)?;
     let client = schedule.client(&digest.peek())?;
     let server = schedule.server(&digest.peek())?;
@@ -226,14 +234,30 @@ pub fn answer(
         .write()?,
     )?;
     absorb(&mut digest, &finished);
-    let mut flight = Vec::new();
-    flight.extend_from_slice(&extensions);
-    flight.extend_from_slice(&certificate);
-    flight.extend_from_slice(&verify);
-    flight.extend_from_slice(&finished);
-    let keys = server.keys(Aead::Aes128)?;
-    let record = Layer::new(Aead::Aes128, &keys)?.protect(Content::Handshake, &flight, 0)?;
-    Ok((reply, vec![record], Waiting { digest, client }))
+    let mut rest = Vec::new();
+    rest.extend_from_slice(&extensions);
+    rest.extend_from_slice(&certificate);
+    rest.extend_from_slice(&verify);
+    rest.extend_from_slice(&finished);
+    Ok(Spoken {
+        reply,
+        hello: start,
+        rest,
+        waiting: Waiting { digest, client },
+        server,
+    })
+}
+
+pub fn answer(
+    hello: &Hello,
+    held: &Held,
+    secret: &[u8; 32],
+    random: [u8; 32],
+) -> Result<(Reply, Vec<Record>, Waiting), Error> {
+    let spoken = spoken(hello, held, secret, random)?;
+    let keys = spoken.server.keys(Aead::Aes128)?;
+    let record = Layer::new(Aead::Aes128, &keys)?.protect(Content::Handshake, &spoken.rest, 0)?;
+    Ok((spoken.reply, vec![record], spoken.waiting))
 }
 
 pub fn frame(content: Content, fragment: Vec<u8>) -> Record {

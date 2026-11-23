@@ -2,6 +2,7 @@ mod agree;
 mod chain;
 mod extend;
 mod peer;
+pub(crate) use peer::{mint, spoken};
 mod piped;
 mod protect;
 mod schedule;
