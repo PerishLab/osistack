@@ -28,6 +28,7 @@ pub fn table() -> Vec<(&'static str, Check)> {
     rows.extend(integrity::table());
     rows.extend(flow::table());
     rows.extend(reno::table());
+    rows.push(("v1", finish::client as Check));
     rows
 }
 
