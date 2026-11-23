@@ -74,3 +74,17 @@ path = "fuzz_targets/h3frame.rs"
 test = false
 doc = false
 bench = false
+
+[[bin]]
+name = "params"
+path = "fuzz_targets/params.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "qframe"
+path = "fuzz_targets/qframe.rs"
+test = false
+doc = false
+bench = false
