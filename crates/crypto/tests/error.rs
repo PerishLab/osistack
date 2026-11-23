@@ -1,4 +1,4 @@
-use crypto::{Aead, Error, Group, Hash, Verifier, hmac};
+use crypto::{Aead, Error, Group, Hash, Scheme, Verifier, hmac};
 use std::collections::HashSet;
 
 const ALL: [Error; 8] = [
@@ -34,7 +34,10 @@ fn mapped() {
     let outcomes = [
         (
             Error::Unsupported,
-            hmac::sign(Hash::Sha512, b"k", b"d").err(),
+            Verifier::ecdsa(&point)
+                .unwrap()
+                .check(Scheme::Pkcs1(Hash::Sha256), b"m", &[])
+                .err(),
         ),
         (Error::Length, Aead::Aes128.cipher(&[0; 3]).err()),
         (

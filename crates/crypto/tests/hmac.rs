@@ -114,13 +114,32 @@ fn sha384() {
 }
 
 #[test]
-fn others() {
-    assert_eq!(
-        hmac::sign(Hash::Sha512, b"key", b"data"),
-        Err(Error::Unsupported)
-    );
-    assert_eq!(
-        hmac::verify(Hash::Sha512, b"key", b"data", &[0; 64]),
-        Err(Error::Unsupported)
-    );
+fn sha512() {
+    let cases = [
+        (
+            "0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b",
+            "4869205468657265",
+            "87aa7cdea5ef619d4ff0b4241a1d6cb02379f4e2ce4ec2787ad0b30545e17cdedaa833b7d6b8a702038b274eaea3f4e4be9d914eeb61f1702e696c203a126854",
+        ),
+        (
+            "4a656665",
+            "7768617420646f2079612077616e7420666f72206e6f7468696e673f",
+            "164b7a7bfcf819e2e395fbe73b56e0a387bd64222e831fd610270cd7ea2505549758bf75c05a994a6d034f65f8f0e6fdcaeab1a34d4a6b4b636e070a38bce737",
+        ),
+    ];
+    for (at, (key, data, tag)) in cases.into_iter().enumerate() {
+        let tag = hex(tag);
+        let signed = hmac::sign(Hash::Sha512, &hex(key), &hex(data)).unwrap();
+        assert_eq!(signed, tag, "case {at}");
+        assert_eq!(
+            hmac::verify(Hash::Sha512, &hex(key), &hex(data), &tag),
+            Ok(())
+        );
+        let mut flipped = tag.clone();
+        flipped[0] ^= 1;
+        assert_eq!(
+            hmac::verify(Hash::Sha512, &hex(key), &hex(data), &flipped),
+            Err(Error::Auth)
+        );
+    }
 }
