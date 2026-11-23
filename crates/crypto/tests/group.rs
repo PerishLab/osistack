@@ -140,3 +140,83 @@ fn groups() {
     assert_eq!((x.len(), p.len()), (32, 65));
     assert_eq!(p[0], 4);
 }
+
+struct Dice(u64);
+
+impl Dice {
+    fn new(seed: u64) -> Self {
+        Self(seed.wrapping_mul(0x9e37_79b9_7f4a_7c15) | 1)
+    }
+
+    fn next(&mut self) -> u64 {
+        self.0 ^= self.0 << 13;
+        self.0 ^= self.0 >> 7;
+        self.0 ^= self.0 << 17;
+        self.0
+    }
+
+    fn below(&mut self, limit: usize) -> usize {
+        (self.next() % limit as u64) as usize
+    }
+
+    fn fill(&mut self, want: usize) -> Vec<u8> {
+        (0..want).map(|_| self.next() as u8).collect()
+    }
+
+    fn secret(&mut self, group: Group) -> Vec<u8> {
+        loop {
+            let mut bytes = self.fill(32);
+            bytes[0] |= 1;
+            bytes[31] &= 0x7f;
+            if group.public(&bytes).is_ok() {
+                return bytes;
+            }
+        }
+    }
+}
+
+#[test]
+fn shared() {
+    let mut dice = Dice::new(41);
+    for _ in 0..200 {
+        for group in [Group::X25519, Group::Secp256r1] {
+            let left = dice.secret(group);
+            let right = dice.secret(group);
+            let one = group.agree(&left, &group.public(&right).unwrap()).unwrap();
+            let two = group.agree(&right, &group.public(&left).unwrap()).unwrap();
+            assert_eq!(one, two, "{group:?}");
+            assert_eq!(one.len(), 32, "{group:?}");
+        }
+    }
+}
+
+#[test]
+fn spoiled() {
+    let mut dice = Dice::new(43);
+    for _ in 0..120 {
+        for group in [Group::X25519, Group::Secp256r1] {
+            let secret = dice.secret(group);
+            let peer = group.public(&dice.secret(group)).unwrap();
+            assert!(group.agree(&secret, &peer).is_ok(), "{group:?}");
+            assert_eq!(group.public(&secret[..31]), Err(Error::Length), "{group:?}");
+            assert!(
+                group.agree(&secret, &peer[..peer.len() - 1]).is_err(),
+                "{group:?}"
+            );
+            let mut long = peer.clone();
+            long.push(dice.next() as u8);
+            assert!(group.agree(&secret, &long).is_err(), "{group:?}");
+            if group == Group::Secp256r1 {
+                let mut flipped = peer.clone();
+                flipped[0] = 0x05;
+                assert_eq!(group.agree(&secret, &flipped), Err(Error::Point));
+                let at = 1 + dice.below(peer.len() - 1);
+                let mut off = peer.clone();
+                off[at] ^= 1;
+                assert_eq!(group.agree(&secret, &off), Err(Error::Point), "{group:?}");
+            }
+        }
+    }
+    assert_eq!(Group::X25519.agree(&hex(ALICE), &[0; 32]), Err(Error::Zero));
+    assert_eq!(Group::Secp256r1.public(&[0; 32]), Err(Error::Scalar));
+}
