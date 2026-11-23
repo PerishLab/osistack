@@ -75,6 +75,7 @@ fn supported() {
             (Area::Http2, "concurrent-streams"),
             (Area::Http2, "connection-reuse"),
             (Area::Http2, "push-disabled"),
+            (Area::Quic, "v1"),
             (Area::Quic, "retry-integrity"),
             (Area::Quic, "version-negotiation"),
             (Area::Quic, "stream-flow-control"),
@@ -145,7 +146,7 @@ fn exclusions() {
 #[test]
 fn pending() {
     let profile = Profile::current();
-    let pending = [(Area::Quic, "v1"), (Area::Quic, "retry-handshake")];
+    let pending = [(Area::Quic, "retry-handshake")];
     for (area, name) in pending {
         assert_eq!(profile.state(area, name), Some(State::Unverified), "{name}");
     }
@@ -165,9 +166,9 @@ fn unique() {
             + profile.count(State::Unverified),
         profile.capabilities.len()
     );
-    assert_eq!(profile.count(State::Supported), 69);
+    assert_eq!(profile.count(State::Supported), 70);
     assert_eq!(profile.count(State::Excluded), 32);
-    assert_eq!(profile.count(State::Unverified), 2);
+    assert_eq!(profile.count(State::Unverified), 1);
 }
 
 #[test]

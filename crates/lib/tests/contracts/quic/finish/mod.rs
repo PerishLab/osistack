@@ -1,3 +1,5 @@
+mod remote;
+
 use crate::tls::{mint, spoken};
 use crypto::{Aead, Group, Hash};
 use quic::{
@@ -6,13 +8,13 @@ use quic::{
 };
 use tls::{Extension, Hello, Message, Share};
 
-fn params(scid: &[u8]) -> Params {
+pub(super) fn params(scid: &[u8]) -> Params {
     Params {
         list: vec![Param::Idle(30_000), Param::Source(scid.to_vec())],
     }
 }
 
-fn hello(secret: &[u8; 32], scid: &[u8]) -> Hello {
+pub(super) fn hello(secret: &[u8; 32], scid: &[u8]) -> Hello {
     let share = Share {
         group: 0x001d,
         key: Group::X25519.public(secret).unwrap(),
@@ -30,10 +32,14 @@ fn hello(secret: &[u8; 32], scid: &[u8]) -> Hello {
     Hello::offered(&message.write().unwrap()).unwrap()
 }
 
-fn shared(offered: &[u8; 32], chosen: &[u8; 32]) -> Vec<u8> {
+pub(super) fn shared(offered: &[u8; 32], chosen: &[u8; 32]) -> Vec<u8> {
     Group::X25519
         .agree(offered, &Group::X25519.public(chosen).unwrap())
         .unwrap()
+}
+
+pub fn client() {
+    remote::run();
 }
 
 #[test]
