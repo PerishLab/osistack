@@ -16,6 +16,8 @@ fn scheme() {
 fn usage() {
     assert!(matches!(command(&[]), Err(Error::Usage)));
     assert!(matches!(command(&["--method"]), Err(Error::Usage)));
+    assert!(matches!(command(&["-o"]), Err(Error::Usage)));
+    assert!(matches!(command(&["--output"]), Err(Error::Usage)));
     assert!(matches!(
         command(&["--verbose", "http://a/"]),
         Err(Error::Usage)
@@ -40,4 +42,32 @@ fn posting() {
     assert!(seen.starts_with("POST /upload HTTP/1.1\r\n"), "{seen}");
     assert!(seen.contains("content-length: 2\r\n"), "{seen}");
     assert!(seen.ends_with("\r\n\r\nhi"), "{seen}");
+}
+
+#[test]
+fn output() {
+    use osistack::h1::Server;
+    let server = Server::replying(vec![
+        b"HTTP/1.1 200 OK\r\ncontent-length: 2\r\n\r\nok".to_vec(),
+    ]);
+    let target = format!("http://127.0.0.1:{}/file", server.port);
+    let path = std::env::temp_dir().join(format!("osistack-254-{}", std::process::id()));
+    let _ = std::fs::remove_file(&path);
+    let held = path.to_str().unwrap().to_owned();
+    let response = command(&["-o", &held, &target]).unwrap();
+    assert_eq!(response.head.status.get(), 200);
+    assert_eq!(response.body, b"ok");
+    assert_eq!(std::fs::read(&path).unwrap(), b"ok");
+    let again = std::env::temp_dir().join(format!("osistack-254-out-{}", std::process::id()));
+    let _ = std::fs::remove_file(&again);
+    let held = again.to_str().unwrap().to_owned();
+    let server = Server::replying(vec![
+        b"HTTP/1.1 200 OK\r\ncontent-length: 3\r\n\r\nyes".to_vec(),
+    ]);
+    let target = format!("http://127.0.0.1:{}/file", server.port);
+    let response = command(&["--output", &held, &target]).unwrap();
+    assert_eq!(response.body, b"yes");
+    assert_eq!(std::fs::read(&again).unwrap(), b"yes");
+    let _ = std::fs::remove_file(&path);
+    let _ = std::fs::remove_file(&again);
 }
