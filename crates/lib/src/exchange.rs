@@ -17,7 +17,7 @@ pub(crate) enum Slot {
 
 pub struct Exchange<'a> {
     body: Option<Body>,
-    client: &'a Client,
+    pub(crate) client: &'a Client,
     data: Vec<u8>,
     deadline: Instant,
 }

@@ -37,7 +37,7 @@ impl<'a> Clock<'a> {
         if exchange.h2() {
             return Mux::boot(&mut exchange)?.ask(&mut exchange, method, uri, body);
         }
-        let fields = Client::fields(&method, uri, body, true)?;
+        let fields = self.client.fields(&method, uri, body, true)?;
         let request = Request::new(method, target, fields)?.encode()?;
         exchange.send(&request)?;
         exchange.send(body)?;
@@ -102,7 +102,7 @@ fn locate(base: &Uri, response: &Response) -> Result<Option<Uri>, Error> {
     Ok(Some(base.join(text)?))
 }
 
-fn asked(method: &Method, uri: &Uri, body: &[u8]) -> Vec<Header> {
+fn asked(method: &Method, uri: &Uri, body: &[u8], extra: &[Field]) -> Vec<Header> {
     let mut fields = vec![
         Header::new(b":method", method.text().as_bytes()),
         Header::new(b":scheme", uri.scheme().text().as_bytes()),
@@ -112,6 +112,12 @@ fn asked(method: &Method, uri: &Uri, body: &[u8]) -> Vec<Header> {
     if !body.is_empty() {
         let size = body.len().to_string();
         fields.push(Header::new(b"content-length", size.as_bytes()));
+    }
+    for field in extra {
+        fields.push(Header::new(
+            field.name.text().as_bytes(),
+            field.value.bytes(),
+        ));
     }
     fields
 }
@@ -148,7 +154,7 @@ impl Mux {
                 let fin = body.is_empty();
                 let frames = self
                     .connection
-                    .headers(id, &asked(&method, uri, body), fin)
+                    .headers(id, &asked(&method, uri, body, &exchange.client.extra), fin)
                     .map_err(|_| Error::Usage)?;
                 emit(exchange, &self.connection, &frames)?;
                 if !fin {

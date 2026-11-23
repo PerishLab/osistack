@@ -17,6 +17,16 @@ fn usage() {
     assert!(matches!(command(&["--max-time"]), Err(Error::Usage)));
     assert!(matches!(command(&["-w"]), Err(Error::Usage)));
     assert!(matches!(command(&["--write-out"]), Err(Error::Usage)));
+    assert!(matches!(command(&["-H"]), Err(Error::Usage)));
+    assert!(matches!(command(&["--header"]), Err(Error::Usage)));
+    assert!(matches!(
+        command(&["--header", "X-Test", "http://a/"]),
+        Err(Error::Usage)
+    ));
+    assert!(matches!(
+        command(&["-H", ": yes", "http://a/"]),
+        Err(Error::Usage)
+    ));
     assert!(matches!(
         command(&["--max-time", "abc", "http://a/"]),
         Err(Error::Usage)
@@ -165,4 +175,19 @@ fn written() {
     let outcome = applied(&["--write-out", "code=%{http_code}", &target]).unwrap();
     assert_eq!(outcome.response.body, b"yes");
     assert_eq!(outcome.written.as_deref(), Some("code=201"));
+}
+
+#[test]
+fn headed() {
+    use osistack::h1::Server;
+    let server = Server::replying(vec![
+        b"HTTP/1.1 200 OK\r\ncontent-length: 2\r\n\r\nok".to_vec(),
+    ]);
+    let target = format!("http://127.0.0.1:{}/path", server.port);
+    let response = command(&["-H", "X-Test: one", "--header", "X-More: two", &target]).unwrap();
+    assert_eq!(response.head.status.get(), 200);
+    assert_eq!(response.body, b"ok");
+    let seen = String::from_utf8(server.captured()).unwrap();
+    assert!(seen.contains("x-test: one\r\n"), "{seen}");
+    assert!(seen.contains("x-more: two\r\n"), "{seen}");
 }

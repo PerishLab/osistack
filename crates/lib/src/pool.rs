@@ -91,7 +91,7 @@ impl<'a> Opened<'a> {
         body: &[u8],
     ) -> Result<(Response, Option<Held>), Error> {
         let bodiless = method.text() == "HEAD" || method.text() == "CONNECT";
-        let fields = Client::fields(&method, uri, body, false)?;
+        let fields = client.fields(&method, uri, body, false)?;
         let request = Request::new(method, &uri.target(), fields)?.encode()?;
         if let Err(error) = self
             .exchange
