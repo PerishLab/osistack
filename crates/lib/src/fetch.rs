@@ -47,6 +47,7 @@ pub fn driven(mut client: Client, args: &[&str]) -> Result<Applied, Error> {
         client.total = total;
     }
     client.extra = taken.extra;
+    client.follow = taken.follow;
     if let Some(via) = taken.proxy {
         client.via = Some(via);
     }
@@ -94,6 +95,7 @@ struct Parsed {
     retry: u32,
     noproxy: Option<String>,
     proxy: Option<Uri>,
+    follow: bool,
 }
 
 impl Parsed {
@@ -115,6 +117,7 @@ impl Parsed {
             retry: 0,
             noproxy: None,
             proxy: None,
+            follow: false,
         };
         let mut at = 0;
         while at < args.len() {
@@ -173,7 +176,11 @@ impl Parsed {
                 self.written = Some(needed(args, at)?.to_owned());
                 Ok(at + 2)
             }
-            "-s" | "--silent" | "-S" | "--show-error" | "-L" | "--location" => Ok(at + 1),
+            "-s" | "--silent" | "-S" | "--show-error" => Ok(at + 1),
+            "-L" | "--location" => {
+                self.follow = true;
+                Ok(at + 1)
+            }
             flag if flag.starts_with('-') && !flag.starts_with("--") => {
                 self.shorts(flag)?;
                 Ok(at + 1)
@@ -196,7 +203,8 @@ impl Parsed {
         for unit in flag.chars().skip(1) {
             match unit {
                 'f' => self.fail = true,
-                's' | 'S' | 'L' => {}
+                's' | 'S' => {}
+                'L' => self.follow = true,
                 _ => return Err(Error::Usage),
             }
         }

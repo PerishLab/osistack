@@ -74,7 +74,7 @@ impl<'a> Clock<'a> {
             };
             let response = self.issue(method.clone(), &target, &payload, &line)?;
             let status = response.head.status.get();
-            if !matches!(status, 301 | 302 | 303 | 307 | 308) {
+            if !self.client.follow || !matches!(status, 301 | 302 | 303 | 307 | 308) {
                 return Ok(response);
             }
             if hop == 5 {

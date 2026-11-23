@@ -16,6 +16,7 @@ pub struct Client {
     pub roots: Roots,
     pub extra: Vec<Field>,
     pub via: Option<Uri>,
+    pub follow: bool,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -36,6 +37,7 @@ impl Default for Client {
             roots: Roots::default(),
             extra: Vec::new(),
             via: None,
+            follow: true,
         }
     }
 }
