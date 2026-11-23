@@ -91,3 +91,43 @@ fn writes() {
 fn loopback() {
     wired(&session());
 }
+
+#[test]
+fn many() {
+    let session = session();
+    let mut client = fresh();
+    let mut server = peer();
+    let one = client.open().unwrap();
+    let two = client.open().unwrap();
+    assert_eq!((one, two), (0, 4));
+    assert_eq!(client.write(one, b"ping").unwrap(), 4);
+    client.finish(one).unwrap();
+    assert_eq!(client.write(two, b"pang").unwrap(), 4);
+    client.finish(two).unwrap();
+    let first = client.next(one, 1200).unwrap().unwrap();
+    let second = client.next(two, 1200).unwrap().unwrap();
+    let payload = Frame::join(&[first, second]).unwrap();
+    session
+        .near
+        .send(&pack(&session.applied.client, &session.server, 0, &payload))
+        .unwrap();
+    let frames = take(&session.peer, &session.applied.client, session.server.len());
+    server.ingest(&frames).unwrap();
+    assert_eq!(server.read(one, 16).unwrap(), b"ping");
+    assert_eq!(server.read(two, 16).unwrap(), b"pang");
+    assert_eq!(server.write(one, b"pong").unwrap(), 4);
+    server.finish(one).unwrap();
+    assert_eq!(server.write(two, b"peng").unwrap(), 4);
+    server.finish(two).unwrap();
+    let first = server.next(one, 1200).unwrap().unwrap();
+    let second = server.next(two, 1200).unwrap().unwrap();
+    let payload = Frame::join(&[first, second]).unwrap();
+    session
+        .peer
+        .send(&pack(&session.applied.server, &session.client, 0, &payload))
+        .unwrap();
+    let frames = take(&session.near, &session.applied.server, session.client.len());
+    client.ingest(&frames).unwrap();
+    assert_eq!(client.read(one, 16).unwrap(), b"pong");
+    assert_eq!(client.read(two, 16).unwrap(), b"peng");
+}
