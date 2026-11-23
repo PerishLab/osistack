@@ -10,6 +10,7 @@ pub struct Accepted {
     pub(super) digest: Running,
     pub(super) client: Traffic,
     pub(super) server: Traffic,
+    pub(super) schedule: Schedule,
 }
 
 impl Accepted {
@@ -153,6 +154,7 @@ impl Hello {
             client: schedule.client(&transcript)?,
             server: schedule.server(&transcript)?,
             digest,
+            schedule,
         })
     }
 

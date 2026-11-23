@@ -231,3 +231,39 @@ fn forged() {
             .is_err()
     );
 }
+
+#[test]
+fn finishes() {
+    let (hello, accepted) = accepted();
+    let der = cert(HOST);
+    let record = packed(&hello, &accepted, &der, false);
+    let verified = accepted
+        .verify(HOST, &roots(&der), now(), &[record])
+        .unwrap();
+    let complete = verified.finish().unwrap();
+    let (message, used) = Message::parse(complete.spoken(), 1 << 16).unwrap().unwrap();
+    assert_eq!(used, complete.spoken().len());
+    assert_eq!(message.kind, Kind::Finished);
+    accepted
+        .client()
+        .check(&verified.digest(), &message.body)
+        .unwrap();
+    let master = tls::Schedule::new(Hash::Sha256, &shared())
+        .unwrap()
+        .master()
+        .unwrap();
+    let through = verified.digest();
+    assert_eq!(
+        complete.client().secret(),
+        master.client(&through).unwrap().secret()
+    );
+    assert_eq!(
+        complete.server().secret(),
+        master.server(&through).unwrap().secret()
+    );
+    assert_eq!(complete.exporter(), master.exporter(&through).unwrap());
+    assert_eq!(
+        complete.resumption(),
+        master.resumption(&complete.digest()).unwrap()
+    );
+}

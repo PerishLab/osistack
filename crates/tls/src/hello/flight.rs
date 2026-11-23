@@ -2,7 +2,7 @@ use crate::error::Error;
 use crate::hello::Accepted;
 use crate::message::{Kind, Message};
 use crate::record::{Content, Layer, Record};
-use crate::schedule::Traffic;
+use crate::schedule::{Schedule, Traffic};
 use crate::x509::trust::{Chain as Path, Host, Roots};
 use crate::x509::{Certificate, Public, Time};
 use crypto::{Aead, Hash, Running, Scheme, Verifier};
@@ -10,8 +10,18 @@ use crypto::{Aead, Hash, Running, Scheme, Verifier};
 const CONTEXT: &[u8] = b"TLS 1.3, server CertificateVerify";
 
 pub struct Verified {
+    pub(super) digest: Running,
+    pub(super) client: Traffic,
+    pub(super) schedule: Schedule,
+}
+
+pub struct Complete {
+    spoken: Vec<u8>,
     digest: Running,
     client: Traffic,
+    server: Traffic,
+    exporter: Vec<u8>,
+    resumption: Vec<u8>,
 }
 
 impl Verified {
@@ -21,6 +31,53 @@ impl Verified {
 
     pub fn client(&self) -> &Traffic {
         &self.client
+    }
+
+    pub fn finish(&self) -> Result<Complete, Error> {
+        let master = self.schedule.master()?;
+        let transcript = self.digest.peek();
+        let tag = self.client.finished(&transcript)?;
+        let spoken = Message {
+            kind: Kind::Finished,
+            body: tag,
+        }
+        .write()?;
+        let mut digest = self.digest.clone();
+        digest.update(&spoken);
+        Ok(Complete {
+            client: master.client(&transcript)?,
+            server: master.server(&transcript)?,
+            exporter: master.exporter(&transcript)?,
+            resumption: master.resumption(&digest.peek())?,
+            spoken,
+            digest,
+        })
+    }
+}
+
+impl Complete {
+    pub fn spoken(&self) -> &[u8] {
+        &self.spoken
+    }
+
+    pub fn digest(&self) -> Vec<u8> {
+        self.digest.peek()
+    }
+
+    pub fn client(&self) -> &Traffic {
+        &self.client
+    }
+
+    pub fn server(&self) -> &Traffic {
+        &self.server
+    }
+
+    pub fn exporter(&self) -> &[u8] {
+        &self.exporter
+    }
+
+    pub fn resumption(&self) -> &[u8] {
+        &self.resumption
     }
 }
 
@@ -149,6 +206,7 @@ impl Accepted {
         Ok(Verified {
             digest,
             client: self.client.clone(),
+            schedule: self.schedule.clone(),
         })
     }
 }
