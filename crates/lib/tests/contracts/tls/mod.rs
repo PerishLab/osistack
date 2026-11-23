@@ -2,6 +2,7 @@ mod agree;
 mod chain;
 mod protect;
 mod schedule;
+mod verify;
 
 use crate::behaviour::Check;
 use tls::x509::trust::{Host, Refusal, Roots, verify};
@@ -23,6 +24,7 @@ pub fn table() -> Vec<(&'static str, Check)> {
     rows.extend(agree::table());
     rows.extend(schedule::table());
     rows.extend(protect::table());
+    rows.extend(verify::table());
     rows.extend(chain::table());
     rows
 }
