@@ -77,3 +77,30 @@ fn position() {
     assert_eq!(reader.varint().map(Varint::get), Ok(37));
     assert_eq!(reader.varint(), Err(Error::Truncated));
 }
+
+#[test]
+fn trips() {
+    let mut values: Vec<u64> = (0..512).collect();
+    for bit in 0..62 {
+        values.push(1 << bit);
+        values.push((1 << bit) - 1);
+    }
+    values.push((1 << 62) - 1);
+    for value in values {
+        let bytes = encode(value);
+        assert_eq!(decode(&bytes), Ok(value), "{value}");
+        for cut in 0..bytes.len() {
+            assert_eq!(
+                decode(&bytes[..cut]),
+                Err(Error::Truncated),
+                "{value} {cut}"
+            );
+        }
+        let mut padded = bytes.clone();
+        padded.push(0x25);
+        let mut reader = Reader::new(&padded);
+        assert_eq!(reader.varint().map(Varint::get), Ok(value));
+        assert_eq!(reader.varint().map(Varint::get), Ok(37));
+        assert_eq!(reader.left(), 0);
+    }
+}
