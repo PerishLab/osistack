@@ -2,6 +2,7 @@ mod closing;
 mod cycle;
 mod flow;
 mod remote;
+mod reset;
 mod streams;
 
 pub(crate) use remote::session;
