@@ -198,3 +198,54 @@ fn empty() {
         );
     }
 }
+
+#[test]
+#[ignore = "wycheproof"]
+fn proving() {
+    let Some(aes) = common::cases::rows("aes_gcm_test.txt") else {
+        return;
+    };
+    let Some(chacha) = common::cases::rows("chacha20_poly1305_test.txt") else {
+        return;
+    };
+    assert!(checked(Aead::Aes128, &aes) > 0);
+    assert!(checked(Aead::Aes256, &aes) > 0);
+    assert!(checked(Aead::Chacha, &chacha) > 0);
+}
+
+fn checked(aead: Aead, rows: &[common::cases::Case]) -> usize {
+    let mut seen = 0;
+    for case in rows {
+        let key = case.bytes("key");
+        let iv = case.bytes("iv");
+        if key.len() != aead.key() || iv.len() != Aead::NONCE {
+            continue;
+        }
+        let nonce: [u8; 12] = iv.try_into().unwrap();
+        let aad = case.bytes("aad");
+        let tag = case.bytes("tag");
+        let cipher = aead.cipher(&key).unwrap();
+        seen += 1;
+        if case.result() == "valid" {
+            let mut data = case.bytes("msg");
+            let made = cipher.seal(&nonce, &aad, &mut data).unwrap();
+            assert_eq!(
+                (data, made.as_slice()),
+                (case.bytes("ct"), tag.as_slice()),
+                "{}",
+                case.id
+            );
+            let mut data = case.bytes("ct");
+            cipher.open(&nonce, &aad, &mut data, &tag).unwrap();
+            assert_eq!(data, case.bytes("msg"), "{}", case.id);
+        } else {
+            let mut data = case.bytes("ct");
+            assert!(
+                cipher.open(&nonce, &aad, &mut data, &tag).is_err(),
+                "{}",
+                case.id
+            );
+        }
+    }
+    seen
+}

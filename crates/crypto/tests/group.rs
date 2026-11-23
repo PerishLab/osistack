@@ -220,3 +220,28 @@ fn spoiled() {
     assert_eq!(Group::X25519.agree(&hex(ALICE), &[0; 32]), Err(Error::Zero));
     assert_eq!(Group::Secp256r1.public(&[0; 32]), Err(Error::Scalar));
 }
+
+#[test]
+#[ignore = "wycheproof"]
+fn proving() {
+    let Some(rows) = common::cases::rows("x25519_test.txt") else {
+        return;
+    };
+    let mut seen = 0;
+    for case in rows {
+        let secret = case.bytes("private");
+        let peer = case.bytes("public");
+        let shared = case.bytes("shared");
+        if secret.len() != 32 || peer.len() != 32 || shared.len() != 32 {
+            continue;
+        }
+        seen += 1;
+        let got = Group::X25519.agree(&secret, &peer);
+        if shared.iter().all(|byte| *byte == 0) {
+            assert_eq!(got, Err(Error::Zero), "{}", case.id);
+        } else {
+            assert_eq!(got, Ok(shared), "{}", case.id);
+        }
+    }
+    assert!(seen > 0);
+}
