@@ -14,7 +14,9 @@ pub use fault::Fault;
 pub use flow::{
     Allowance, Choked, Credit, Inbound, Lanes, Phase, Piece, Receiving, Role, Sending, Stage,
 };
-pub use frame::{Ack, Applied, Direction, Ecn, Flight, Frame, Handshake, Hearing, Opening, Stream};
+pub use frame::{
+    Ack, Applied, Control, Direction, Ecn, Flight, Frame, Handshake, Hearing, Opening, Stream,
+};
 pub use packet::{
     Client, Cycle, Header, Initial, Keys, Kind, Long, Negotiation, Number, Opened, Quota, Retry,
     Short, Verdict, answer,
