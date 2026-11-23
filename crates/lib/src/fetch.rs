@@ -1,6 +1,7 @@
 use crate::client::{Client, Response};
 use crate::error::Error;
 use http::{Method, Request, Scheme, Uri};
+use std::fs;
 
 pub fn fetch(request: &Request, body: &[u8]) -> Result<Response, Error> {
     if request.scheme() != Scheme::Http {
@@ -28,13 +29,18 @@ pub fn command(args: &[&str]) -> Result<Response, Error> {
         return Err(Error::Scheme);
     }
     let request = Request::new(taken.method, &uri, Vec::new())?;
-    fetch(&request, &taken.body)
+    let response = fetch(&request, &taken.body)?;
+    if let Some(path) = taken.output {
+        fs::write(path, &response.body)?;
+    }
+    Ok(response)
 }
 
 struct Parsed {
     method: Method,
     target: String,
     body: Vec<u8>,
+    output: Option<String>,
 }
 
 impl Parsed {
@@ -48,6 +54,7 @@ impl Parsed {
             method: Method::new("GET")?,
             target: String::new(),
             body: Vec::new(),
+            output: None,
         };
         let mut at = 0;
         while at < args.len() {
@@ -68,6 +75,10 @@ impl Parsed {
             }
             "--data" => {
                 self.body = needed(args, at)?.as_bytes().to_vec();
+                Ok(at + 2)
+            }
+            "-o" | "--output" => {
+                self.output = Some(needed(args, at)?.to_owned());
                 Ok(at + 2)
             }
             flag if flag.starts_with('-') => Err(Error::Usage),

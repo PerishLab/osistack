@@ -14,6 +14,7 @@ pub enum Error {
     Usage,
     Redirect,
     Timeout,
+    Output,
 }
 
 impl fmt::Display for Error {
@@ -34,6 +35,7 @@ impl fmt::Display for Error {
                 "redirect is missing, looped, or exceeded the hop limit"
             ),
             Self::Timeout => write!(out, "the request exceeded the total time limit"),
+            Self::Output => write!(out, "could not write the output file"),
         }
     }
 }
@@ -74,5 +76,11 @@ impl From<tls::Error> for Error {
 impl From<h2::Error> for Error {
     fn from(error: h2::Error) -> Self {
         Self::Http2(error)
+    }
+}
+
+impl From<std::io::Error> for Error {
+    fn from(_: std::io::Error) -> Self {
+        Self::Output
     }
 }
