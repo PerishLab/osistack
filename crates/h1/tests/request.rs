@@ -37,13 +37,7 @@ fn order() {
 #[test]
 fn targets() {
     let host = [("Host", "example.com")];
-    for target in [
-        "/",
-        "/a/b?c=d",
-        "*",
-        "http://example.com/x",
-        "example.com:443",
-    ] {
+    for target in ["/", "/a/b?c=d", "*", "http://example.com/x"] {
         let out = encode("OPTIONS", target, &host).unwrap();
         assert!(
             out.starts_with(format!("OPTIONS {target} HTTP/1.1\r\n").as_bytes()),
@@ -191,4 +185,77 @@ fn roundtrip() {
     let body = Chunked::decode(&wire).unwrap().unwrap();
     assert_eq!(body.data, b"hello world\x00\xff\r\n");
     assert_eq!(body.used, wire.len());
+}
+
+#[test]
+fn connect() {
+    let host = [("Host", "example.com:443")];
+    let out = encode("CONNECT", "example.com:443", &host).unwrap();
+    assert_eq!(
+        out,
+        b"CONNECT example.com:443 HTTP/1.1\r\nhost: example.com:443\r\n\r\n"
+    );
+    let out = encode("CONNECT", "[::1]:8443", &[("Host", "[::1]:8443")]).unwrap();
+    assert!(out.starts_with(b"CONNECT [::1]:8443 HTTP/1.1\r\n"));
+}
+
+#[test]
+fn absolute() {
+    let host = [("Host", "example.com")];
+    let target = "https://example.com:8443/x?y=1";
+    let out = encode("GET", target, &host).unwrap();
+    assert!(out.starts_with(format!("GET {target} HTTP/1.1\r\n").as_bytes()));
+}
+
+#[test]
+fn forms() {
+    let host = [("Host", "a")];
+    for target in ["/", "http://a/", "*", "example.com"] {
+        assert_eq!(
+            build("CONNECT", target, &host),
+            Err(Error::Target),
+            "{target}"
+        );
+    }
+    assert_eq!(build("GET", "*", &host), Err(Error::Target));
+    assert_eq!(build("GET", "example.com:443", &host), Err(Error::Target));
+    assert_eq!(build("CONNECT", "example.com:0", &host), Err(Error::Target));
+    assert_eq!(build("CONNECT", "http://a:443/", &host), Err(Error::Target));
+    assert_eq!(build("GET", "http://user@a/", &host), Err(Error::Target));
+    assert_eq!(build("GET", "http://a/#frag", &host), Err(Error::Target));
+}
+
+#[test]
+fn parsed() {
+    let request = build("CONNECT", "example.com:443", &[("Host", "example.com:443")]).unwrap();
+    let bytes = request.encode().unwrap();
+    let (found, used) = Request::parse(&bytes, 4096).unwrap().unwrap();
+    assert_eq!((found, used), (request, bytes.len()));
+    let request = build("GET", "http://example.com/x", &[("Host", "example.com")]).unwrap();
+    let bytes = request.encode().unwrap();
+    let (found, used) = Request::parse(&bytes, 4096).unwrap().unwrap();
+    assert_eq!((found, used), (request, bytes.len()));
+}
+
+#[test]
+fn prefixes() {
+    let bytes = encode("GET", "http://a/x", &[("Host", "a")]).unwrap();
+    assert!(Request::parse(&bytes, 4096).unwrap().is_some());
+    for size in 0..bytes.len() {
+        assert_eq!(Request::parse(&bytes[..size], 4096), Ok(None), "{size}");
+    }
+    assert_eq!(Request::parse(&bytes, bytes.len() - 1), Err(Error::Size));
+}
+
+#[test]
+fn lining() {
+    assert_eq!(
+        Request::parse(b"GET / HTTP/2.0\r\nHost: a\r\n\r\n", 4096),
+        Err(Error::Version)
+    );
+    assert_eq!(
+        Request::parse(b"GET / extra HTTP/1.1\r\nHost: a\r\n\r\n", 4096),
+        Err(Error::Line)
+    );
+    assert_eq!(Request::parse(&[], 4096), Ok(None));
 }

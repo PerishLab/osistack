@@ -44,6 +44,7 @@ fn supported() {
             (Area::Http1, "smuggling-defense"),
             (Area::Http1, "status-not-error"),
             (Area::Http1, "loopback-test-server"),
+            (Area::Http1, "proxy"),
             (Area::Tls, "x25519"),
             (Area::Tls, "p256"),
             (Area::Tls, "aes-gcm"),
@@ -140,7 +141,6 @@ fn exclusions() {
 fn pending() {
     let profile = Profile::current();
     let pending = [
-        (Area::Http1, "proxy"),
         (Area::Http1, "keep-alive-pool"),
         (Area::Http1, "redirect-policy"),
         (Area::Http1, "total-timeout"),
@@ -170,9 +170,9 @@ fn unique() {
             + profile.count(State::Unverified),
         profile.capabilities.len()
     );
-    assert_eq!(profile.count(State::Supported), 60);
+    assert_eq!(profile.count(State::Supported), 61);
     assert_eq!(profile.count(State::Excluded), 32);
-    assert_eq!(profile.count(State::Unverified), 11);
+    assert_eq!(profile.count(State::Unverified), 10);
 }
 
 #[test]

@@ -96,7 +96,7 @@ fn status(line: &[u8]) -> Result<(Version, Status, String), Error> {
     ))
 }
 
-fn field(line: &[u8]) -> Result<Field, Error> {
+pub(crate) fn field(line: &[u8]) -> Result<Field, Error> {
     if line.first().is_some_and(|byte| blank(*byte)) {
         return Err(Error::Fold);
     }
