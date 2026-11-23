@@ -43,6 +43,8 @@ fn supported() {
             (Area::Http1, "http10-response"),
             (Area::Http1, "smuggling-defense"),
             (Area::Http1, "status-not-error"),
+            (Area::Tls, "aes-gcm"),
+            (Area::Tls, "chacha20-poly1305"),
             (Area::Tls, "chain-validation"),
             (Area::Tls, "hostname-validation"),
             (Area::Tls, "explicit-pem-roots"),
@@ -158,9 +160,9 @@ fn unique() {
             + profile.count(State::Unverified),
         profile.capabilities.len()
     );
-    assert_eq!(profile.count(State::Supported), 39);
+    assert_eq!(profile.count(State::Supported), 41);
     assert_eq!(profile.count(State::Excluded), 32);
-    assert_eq!(profile.count(State::Unverified), 32);
+    assert_eq!(profile.count(State::Unverified), 30);
 }
 
 #[test]
