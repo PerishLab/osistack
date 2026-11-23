@@ -98,6 +98,14 @@ impl Streams {
         Ok(recv.broken())
     }
 
+    pub fn stop(&mut self, id: u64, code: u64) -> Result<Option<Frame>, Error> {
+        let recv = self.recv.get_mut(&id).ok_or(Error::Value)?;
+        let Some(code) = recv.stop(code) else {
+            return Err(Error::Value);
+        };
+        Ok(Some(Frame::Stop { stream: id, code }))
+    }
+
     pub fn grant(&mut self) -> Vec<Frame> {
         let mut frames = Vec::new();
         if let Some(limit) = self.incoming.grant() {
@@ -129,6 +137,13 @@ impl Streams {
                 let fresh = recv.reset(*code, *size).map_err(fail)?;
                 self.incoming.data(self.taken, fresh, true).map_err(fail)?;
                 self.taken += fresh;
+                Ok(())
+            }
+            Frame::Stop { stream, code } => {
+                let send = self.send.get_mut(stream).ok_or(Error::Value)?;
+                if !send.stop(*code) {
+                    return Err(Error::Value);
+                }
                 Ok(())
             }
             _ => Ok(()),
