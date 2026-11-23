@@ -39,6 +39,7 @@ fn supported() {
             (Area::Http1, "framing"),
             (Area::Http1, "content-length"),
             (Area::Http1, "chunked"),
+            (Area::Http1, "keep-alive-pool"),
             (Area::Http1, "connection-close"),
             (Area::Http1, "http10-response"),
             (Area::Http1, "smuggling-defense"),
@@ -141,7 +142,6 @@ fn exclusions() {
 fn pending() {
     let profile = Profile::current();
     let pending = [
-        (Area::Http1, "keep-alive-pool"),
         (Area::Http1, "redirect-policy"),
         (Area::Http1, "total-timeout"),
         (Area::Http1, "phase-timeout"),
@@ -167,9 +167,9 @@ fn unique() {
             + profile.count(State::Unverified),
         profile.capabilities.len()
     );
-    assert_eq!(profile.count(State::Supported), 64);
+    assert_eq!(profile.count(State::Supported), 65);
     assert_eq!(profile.count(State::Excluded), 32);
-    assert_eq!(profile.count(State::Unverified), 7);
+    assert_eq!(profile.count(State::Unverified), 6);
 }
 
 #[test]

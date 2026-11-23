@@ -12,11 +12,19 @@ pub struct Exchange<'a> {
 impl<'a> Exchange<'a> {
     pub fn open(client: &'a Client, host: &str, port: u16) -> Result<Self, Error> {
         let stream = Stream::connect(host, port, client.connect)?;
-        Ok(Self {
+        Ok(Self::resume(client, stream, Vec::new()))
+    }
+
+    pub fn resume(client: &'a Client, stream: Stream, data: Vec<u8>) -> Self {
+        Self {
             stream,
             client,
-            data: Vec::new(),
-        })
+            data,
+        }
+    }
+
+    pub fn taken(self) -> (Stream, Vec<u8>) {
+        (self.stream, self.data)
     }
 
     pub fn send(&mut self, bytes: &[u8]) -> Result<(), Error> {

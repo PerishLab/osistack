@@ -23,6 +23,24 @@ impl Server {
         Self::start(Vec::new(), Duration::ZERO, hold)
     }
 
+    pub fn holding(parts: Vec<Vec<u8>>) -> Self {
+        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let port = listener.local_addr().unwrap().port();
+        let uri = Uri::parse(&format!("http://127.0.0.1:{port}/path?q=1")).unwrap();
+        let handle = thread::spawn(move || {
+            let (mut peer, _) = listener.accept().unwrap();
+            let mut seen = Vec::new();
+            for part in parts {
+                seen.extend(take(&mut peer));
+                if peer.write_all(&part).is_err() {
+                    break;
+                }
+            }
+            seen
+        });
+        Self { uri, port, handle }
+    }
+
     pub fn captured(self) -> Vec<u8> {
         self.handle.join().unwrap()
     }
