@@ -182,3 +182,20 @@ fn noise() {
         }
     }
 }
+
+#[test]
+fn prefixes() {
+    let mut dice = Dice::new(19);
+    let mut refused = 0;
+    for _ in 0..300 {
+        let frames = dice.sequence();
+        let bytes = Frame::join(&frames).unwrap();
+        assert_eq!(Frame::all(&bytes).unwrap(), frames);
+        for cut in 0..bytes.len() {
+            if Frame::all(&bytes[..cut]).is_err() {
+                refused += 1;
+            }
+        }
+    }
+    assert!(refused > 0);
+}
