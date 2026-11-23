@@ -1,3 +1,4 @@
+use crate::Roots;
 use crate::client::{Client, Response};
 use crate::error::Error;
 use h1::Field;
@@ -56,6 +57,13 @@ pub fn driven(mut client: Client, args: &[&str]) -> Result<Applied, Error> {
     {
         client.via = None;
     }
+    if let Some(path) = taken.cacert {
+        let text = fs::read_to_string(path)?;
+        client.roots = Roots::pem(&text).map_err(|_| Error::Trust)?;
+    }
+    if uri.scheme() == Scheme::Https && client.roots.count() == 0 {
+        return Err(Error::Trust);
+    }
     let mut result = client.fetch(taken.method.clone(), &uri, &taken.body);
     for _ in 0..taken.retry {
         if result.is_ok() {
@@ -97,6 +105,7 @@ struct Parsed {
     proxy: Option<Uri>,
     follow: bool,
     head: bool,
+    cacert: Option<String>,
 }
 
 impl Parsed {
@@ -120,6 +129,7 @@ impl Parsed {
             proxy: None,
             follow: false,
             head: false,
+            cacert: None,
         };
         let mut at = 0;
         while at < args.len() {
@@ -180,6 +190,10 @@ impl Parsed {
             }
             "-w" | "--write-out" => {
                 self.written = Some(needed(args, at)?.to_owned());
+                Ok(at + 2)
+            }
+            "--cacert" => {
+                self.cacert = Some(needed(args, at)?.to_owned());
                 Ok(at + 2)
             }
             "-I" | "--head" => {

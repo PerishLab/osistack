@@ -16,6 +16,7 @@ pub enum Error {
     Timeout,
     Output,
     Status,
+    Trust,
 }
 
 impl fmt::Display for Error {
@@ -38,6 +39,7 @@ impl fmt::Display for Error {
             Self::Timeout => write!(out, "the request exceeded the total time limit"),
             Self::Output => write!(out, "could not write the output file"),
             Self::Status => write!(out, "the server returned an HTTP error status"),
+            Self::Trust => write!(out, "https requires a trust root; pass --cacert FILE"),
         }
     }
 }

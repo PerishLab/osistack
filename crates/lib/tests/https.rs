@@ -1,3 +1,5 @@
+#[allow(dead_code, unused_imports)]
+mod common;
 #[allow(dead_code)]
 #[path = "contracts/tls/peer.rs"]
 mod peer;
@@ -5,9 +7,10 @@ mod peer;
 #[path = "contracts/tls/sign.rs"]
 mod sign;
 
+use common::certs;
 use crypto::{Aead, Group, Hash};
 use osistack::http::{Method, Uri};
-use osistack::{Client, Pool, Roots, driven};
+use osistack::{Client, Pool, Roots, command, driven};
 use peer::{Waiting, answer, frame, mint};
 use std::io::{Read, Write};
 use std::net::{TcpListener, TcpStream};
@@ -276,14 +279,21 @@ fn commanding() {
     let held = mint("localhost");
     let listener = TcpListener::bind("127.0.0.1:0").unwrap();
     let port = listener.local_addr().unwrap().port();
-    let server = thread::spawn(move || {
-        let (stream, _) = listener.accept().unwrap();
-        serve(stream)
-    });
+    let server = thread::spawn(move || serve(listener.accept().unwrap().0));
     let target = format!("https://localhost:{port}/path");
     let response = driven(local(held.roots), &[&target]).unwrap().response;
     assert_eq!(response.head.status.get(), 200);
     assert_eq!(response.body, b"ok");
     let seen = String::from_utf8(server.join().unwrap()).unwrap();
     assert!(seen.starts_with("GET /path HTTP/1.1\r\n"), "{seen}");
+    let path = std::env::temp_dir().join(format!("osistack-276-{}", std::process::id()));
+    std::fs::write(&path, certs(&held.der)).unwrap();
+    let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+    let port = listener.local_addr().unwrap().port();
+    let server = thread::spawn(move || serve(listener.accept().unwrap().0));
+    let target = format!("https://localhost:{port}/path");
+    let response = command(&["--cacert", path.to_str().unwrap(), &target]).unwrap();
+    assert_eq!(response.body, b"ok");
+    let _ = server.join();
+    let _ = std::fs::remove_file(&path);
 }
