@@ -69,3 +69,22 @@ fn matching() {
     assert_eq!(named, [0, 0, 0x51, 0x02, b'/', b'x']);
     assert_eq!(other[2] & 0xe0, 0x20);
 }
+
+#[test]
+fn prefixes() {
+    let mut source = Source(19);
+    let mut refused = 0;
+    for _ in 0..200 {
+        let count = 1 + source.next(6);
+        let fields: Vec<Field> = (0..count).map(|_| source.field()).collect();
+        let huffman = source.next(2) == 0;
+        let block = Encoder::new(huffman).encode(&fields);
+        assert_eq!(Decoder::new(0).decode(&block), Ok(fields));
+        for cut in 0..block.len() {
+            if Decoder::new(0).decode(&block[..cut]).is_err() {
+                refused += 1;
+            }
+        }
+    }
+    assert!(refused > 0);
+}
