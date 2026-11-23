@@ -76,7 +76,7 @@ pub fn table() -> Vec<Capability> {
         Capability::new(Area::Quic, "connection-id", State::Supported),
         Capability::new(Area::Quic, "packet-protection", State::Supported),
         Capability::new(Area::Quic, "path-validation", State::Supported),
-        Capability::new(Area::Quic, "key-update", State::Unverified),
+        Capability::new(Area::Quic, "key-update", State::Supported),
         Capability::new(Area::Quic, "newreno", State::Supported),
         Capability::new(Area::Quic, "ecn", State::Unverified),
         Capability::new(Area::Quic, "gso", State::Unverified),
