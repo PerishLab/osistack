@@ -23,10 +23,10 @@ impl fmt::Display for Error {
     fn fmt(&self, out: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::Socket(error) => write!(out, "socket: {error}"),
-            Self::Frame(error) => write!(out, "http/1.1 framing: {error:?}"),
-            Self::Http(error) => write!(out, "http semantics: {error:?}"),
-            Self::Tls(error) => write!(out, "tls: {error:?}"),
-            Self::Http2(error) => write!(out, "http/2 framing: {error:?}"),
+            Self::Frame(error) => write!(out, "http/1.1 framing: {error}"),
+            Self::Http(error) => write!(out, "http semantics: {error}"),
+            Self::Tls(error) => write!(out, "tls: {error}"),
+            Self::Http2(error) => write!(out, "http/2 framing: {error}"),
             Self::Scheme => write!(out, "only the http and https schemes are supported"),
             Self::Random => write!(out, "could not read random bytes"),
             Self::Limit => write!(out, "response exceeds the configured size limit"),
@@ -48,6 +48,10 @@ impl std::error::Error for Error {
     fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
         match self {
             Self::Socket(error) => Some(error),
+            Self::Frame(error) => Some(error),
+            Self::Http(error) => Some(error),
+            Self::Tls(error) => Some(error),
+            Self::Http2(error) => Some(error),
             _ => None,
         }
     }
