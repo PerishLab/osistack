@@ -56,6 +56,7 @@ impl<'a> Exchange<'a> {
         }
     }
 
+    #[allow(dead_code)]
     pub fn wrap(&mut self, host: &str) -> Result<(), Error> {
         self.hold(host, false)
     }

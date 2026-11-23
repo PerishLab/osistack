@@ -7,8 +7,8 @@ mod sign;
 
 use crypto::{Aead, Group, Hash};
 use h2::{Codec, Decoder, Encoder, Frame, Header, PREFACE};
-use osistack::Client;
 use osistack::http::{Method, Uri};
+use osistack::{Client, Pool};
 use peer::{Waiting, answer, frame, mint};
 use std::io::{Read, Write};
 use std::net::{TcpListener, TcpStream};
@@ -131,29 +131,67 @@ fn next(codec: &Codec, seen: &[u8], used: &mut usize) -> Option<Frame> {
     Some(frame)
 }
 
-fn serve(mut stream: TcpStream) -> Vec<u8> {
+struct Wire<'a> {
+    recv: &'a mut Layer,
+    stream: &'a mut TcpStream,
+    buffer: &'a mut Vec<u8>,
+    seen: &'a mut Vec<u8>,
+    used: &'a mut usize,
+}
+
+impl Wire<'_> {
+    fn take(&mut self, codec: &Codec) -> Frame {
+        loop {
+            if let Some(frame) = next(codec, self.seen, self.used) {
+                return frame;
+            }
+            plain(self.recv, self.stream, self.buffer, self.seen);
+        }
+    }
+
+    fn preface(&mut self, codec: &Codec) {
+        while self.seen.len() < PREFACE.len() {
+            plain(self.recv, self.stream, self.buffer, self.seen);
+        }
+        assert_eq!(&self.seen[..PREFACE.len()], PREFACE);
+        *self.used = PREFACE.len();
+        loop {
+            if let Frame::Settings { ack: false, .. } = self.take(codec) {
+                return;
+            }
+        }
+    }
+
+    fn headers(&mut self, codec: &Codec) -> (u32, Vec<u8>) {
+        loop {
+            if let Frame::Headers { stream, block, .. } = self.take(codec) {
+                return (stream, block);
+            }
+        }
+    }
+}
+
+fn serve(stream: TcpStream) -> Vec<u8> {
+    reply(stream, &[b"ok".as_slice()])
+}
+
+fn reply(mut stream: TcpStream, bodies: &[&[u8]]) -> Vec<u8> {
     let (hello, waiting, mut buffer) = speak(&mut stream);
     let (mut send, mut recv) = keys(&hello, &waiting);
     let codec = Codec::default();
     let mut seen = Vec::new();
-    while seen.len() < PREFACE.len() {
-        plain(&mut recv, &mut stream, &mut buffer, &mut seen);
-    }
-    assert_eq!(&seen[..PREFACE.len()], PREFACE);
-    let mut used = PREFACE.len();
-    let mut settings = None;
-    while settings.is_none() {
-        if let Some(frame) = next(&codec, &seen, &mut used) {
-            if let Frame::Settings { ack: false, .. } = frame {
-                settings = Some(frame);
-            }
-            continue;
-        }
-        plain(&mut recv, &mut stream, &mut buffer, &mut seen);
-    }
+    let mut used = 0;
+    let mut wire = Wire {
+        recv: &mut recv,
+        stream: &mut stream,
+        buffer: &mut buffer,
+        seen: &mut seen,
+        used: &mut used,
+    };
+    wire.preface(&codec);
     write(
         &mut send,
-        &mut stream,
+        wire.stream,
         &[
             Frame::Settings {
                 ack: false,
@@ -165,46 +203,39 @@ fn serve(mut stream: TcpStream) -> Vec<u8> {
             },
         ],
     );
-    let mut headers = None;
-    while headers.is_none() {
-        if let Some(frame) = next(&codec, &seen, &mut used) {
-            if let Frame::Headers { stream, block, .. } = frame {
-                headers = Some((stream, block));
-            }
-            continue;
-        }
-        plain(&mut recv, &mut stream, &mut buffer, &mut seen);
+    let mut decoder = Decoder::new(4096);
+    for body in bodies {
+        let (id, block) = wire.headers(&codec);
+        let fields = decoder.decode(&block).unwrap();
+        assert!(
+            fields.contains(&Header::new(b":method", b"GET")),
+            "{fields:?}"
+        );
+        let reply = Encoder::new(4096, true).encode(&[
+            Header::new(b":status", b"200"),
+            Header::new(b"content-type", b"text/plain"),
+        ]);
+        write(
+            &mut send,
+            wire.stream,
+            &[
+                Frame::Headers {
+                    stream: id,
+                    fin: false,
+                    complete: true,
+                    pad: None,
+                    priority: None,
+                    block: reply,
+                },
+                Frame::Data {
+                    stream: id,
+                    fin: true,
+                    pad: None,
+                    data: body.to_vec(),
+                },
+            ],
+        );
     }
-    let (id, block) = headers.unwrap();
-    let fields = Decoder::new(4096).decode(&block).unwrap();
-    assert!(
-        fields.contains(&Header::new(b":method", b"GET")),
-        "{fields:?}"
-    );
-    let reply = Encoder::new(4096, true).encode(&[
-        Header::new(b":status", b"200"),
-        Header::new(b"content-type", b"text/plain"),
-    ]);
-    write(
-        &mut send,
-        &mut stream,
-        &[
-            Frame::Headers {
-                stream: id,
-                fin: false,
-                complete: true,
-                pad: None,
-                priority: None,
-                block: reply,
-            },
-            Frame::Data {
-                stream: id,
-                fin: true,
-                pad: None,
-                data: b"ok".to_vec(),
-            },
-        ],
-    );
     seen
 }
 
@@ -228,6 +259,31 @@ fn fetch() {
     let response = client.fetch(get(), &uri, b"").unwrap();
     assert_eq!(response.head.status.get(), 200);
     assert_eq!(response.body, b"ok");
+    let seen = server.join().unwrap();
+    assert!(seen.starts_with(PREFACE), "{seen:?}");
+}
+
+#[test]
+fn pooling() {
+    let held = mint("localhost");
+    let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+    let port = listener.local_addr().unwrap().port();
+    let server = thread::spawn(move || {
+        let (stream, _) = listener.accept().unwrap();
+        reply(stream, &[b"a".as_slice(), b"b".as_slice()])
+    });
+    let client = Client {
+        roots: held.roots,
+        connect: Duration::from_secs(5),
+        read: Duration::from_secs(5),
+        write: Duration::from_secs(5),
+        ..Client::default()
+    };
+    let one = Uri::parse(&format!("https://localhost:{port}/one")).unwrap();
+    let two = Uri::parse(&format!("https://localhost:{port}/two")).unwrap();
+    let mut pool = Pool::new(client);
+    assert_eq!(pool.fetch(get(), &one, b"").unwrap().body, b"a");
+    assert_eq!(pool.fetch(get(), &two, b"").unwrap().body, b"b");
     let seen = server.join().unwrap();
     assert!(seen.starts_with(PREFACE), "{seen:?}");
 }
