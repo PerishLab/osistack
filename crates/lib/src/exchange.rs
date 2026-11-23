@@ -114,7 +114,9 @@ impl<'a> Exchange<'a> {
             Body::Plain(stream) => stream
                 .write(bytes, Some(timeout))
                 .map_err(|error| stamp(error, self.deadline, phase)),
-            Body::Secure(link) => link.write(bytes, timeout),
+            Body::Secure(link) => link
+                .write(bytes, timeout)
+                .map_err(|error| mark(error, self.deadline, phase)),
         }
     }
 
@@ -124,7 +126,9 @@ impl<'a> Exchange<'a> {
             Body::Plain(stream) => stream
                 .read(buf, Some(timeout))
                 .map_err(|error| stamp(error, self.deadline, phase)),
-            Body::Secure(link) => link.read(buf, timeout),
+            Body::Secure(link) => link
+                .read(buf, timeout)
+                .map_err(|error| mark(error, self.deadline, phase)),
         }
     }
 
@@ -231,6 +235,13 @@ fn budget(deadline: Instant, phase: Duration) -> Result<Duration, Error> {
         .filter(|left| *left > Duration::ZERO)
         .ok_or(Error::Timeout)?;
     Ok(left.min(phase))
+}
+
+fn mark(error: Error, deadline: Instant, phase: Duration) -> Error {
+    match error {
+        Error::Socket(inner) => stamp(inner, deadline, phase),
+        other => other,
+    }
 }
 
 fn stamp(error: socket::Error, deadline: Instant, phase: Duration) -> Error {
