@@ -1,6 +1,16 @@
 mod alerts;
 mod support;
 
+mod tls {
+    pub(crate) use crate::support::{Held, mint, spoken};
+}
+
+#[allow(dead_code)]
+#[path = "../contracts/http3/peer.rs"]
+mod h3peer;
+
+mod altsvc;
+
 use osistack::http::{Method, Uri};
 use osistack::{Client, Http3, Pool};
 use support::{certs, command, driven, get, local, mint, reused, serve, spawn};

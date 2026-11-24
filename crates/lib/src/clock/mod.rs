@@ -48,7 +48,9 @@ impl<'a> Clock<'a> {
             exchange.wire(uri.host())?;
         }
         if exchange.h2() {
-            return Mux::boot(&mut exchange)?.ask(&mut exchange, method, uri, body);
+            let response = Mux::boot(&mut exchange)?.ask(&mut exchange, method, uri, body)?;
+            self.client.remember(uri.host(), uri.port(), &response.head);
+            return Ok(response);
         }
         let fields = self.client.fields(&method, uri, body, true)?;
         let request = Request::new(method, target, fields)?.encode()?;
@@ -61,7 +63,17 @@ impl<'a> Clock<'a> {
             Framing::of(&head)?
         };
         let body = exchange.body(framing)?;
+        self.client.remember(uri.host(), uri.port(), &head);
         Ok(Response { head, body })
+    }
+
+    pub(crate) fn first(
+        &self,
+        method: Method,
+        uri: &Uri,
+        body: &[u8],
+    ) -> Result<Option<Response>, Error> {
+        http3::first(self, method, uri, body)
     }
 
     pub fn chase(&self, method: Method, uri: &Uri, body: &[u8]) -> Result<Response, Error> {

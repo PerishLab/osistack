@@ -26,7 +26,12 @@ pub(crate) fn first(
     body: &[u8],
 ) -> Result<Option<Response>, Error> {
     match clock.client.http3 {
-        crate::client::Http3::Off => Ok(None),
+        crate::client::Http3::Off => {
+            if clock.client.offered(uri.host(), uri.port()).is_none() {
+                return Ok(None);
+            }
+            Ok(ask(clock, method, uri, body).ok())
+        }
         crate::client::Http3::Only => ask(clock, method, uri, body).map(Some),
         crate::client::Http3::Prefer => Ok(ask(clock, method, uri, body).ok()),
     }

@@ -19,7 +19,7 @@ use std::time::Duration;
 pub(crate) use common::certs;
 pub(crate) use crypto::Aead;
 pub(crate) use osistack::{Roots, command, driven};
-pub(crate) use peer::{Waiting, answer, frame, mint};
+pub(crate) use peer::{Held, Waiting, answer, frame, mint, spoken};
 pub(crate) use tls::{Content, Hello, Kind, Layer, Message, Place, Record, Share, Typed};
 
 pub(crate) const SECRET: [u8; 32] = [8; 32];
@@ -120,14 +120,18 @@ pub(crate) fn speak(peer: &mut TcpStream) -> (Hello, Waiting, Vec<u8>) {
 }
 
 pub(crate) fn serve(stream: TcpStream) -> Vec<u8> {
-    finish(stream, false)
+    finish(stream, false, None)
 }
 
 pub(crate) fn ending(stream: TcpStream) -> Vec<u8> {
-    finish(stream, true)
+    finish(stream, true, None)
 }
 
-fn finish(mut stream: TcpStream, close: bool) -> Vec<u8> {
+pub(crate) fn announce(stream: TcpStream, alt: u16) -> Vec<u8> {
+    finish(stream, false, Some(alt))
+}
+
+fn finish(mut stream: TcpStream, close: bool, alt: Option<u16>) -> Vec<u8> {
     let (hello, waiting, mut buffer) = speak(&mut stream);
     let (mut send, mut recv) = keys(&hello, &waiting);
     let mut seen = Vec::new();
@@ -147,8 +151,11 @@ fn finish(mut stream: TcpStream, close: bool) -> Vec<u8> {
         }
     }
     let body = b"ok";
+    let extra = alt
+        .map(|port| format!("alt-svc: h3=\":{port}\"\r\n"))
+        .unwrap_or_default();
     let reply = format!(
-        "HTTP/1.1 200 OK\r\ncontent-length: {}\r\nconnection: close\r\n\r\n",
+        "HTTP/1.1 200 OK\r\ncontent-length: {}\r\nconnection: close\r\n{extra}\r\n",
         body.len()
     );
     let mut wire = reply.into_bytes();
@@ -205,11 +212,35 @@ pub(crate) fn local(roots: Roots) -> Client {
 }
 
 pub(crate) fn spawn(work: fn(TcpStream) -> Vec<u8>) -> (u16, JoinHandle<Vec<u8>>) {
+    begin(work)
+}
+
+pub(crate) fn begin<F>(work: F) -> (u16, JoinHandle<Vec<u8>>)
+where
+    F: FnOnce(TcpStream) -> Vec<u8> + Send + 'static,
+{
     let listener = TcpListener::bind("127.0.0.1:0").unwrap();
     let port = listener.local_addr().unwrap().port();
     let server = thread::spawn(move || {
         let (stream, _) = listener.accept().unwrap();
         work(stream)
+    });
+    (port, server)
+}
+
+pub(crate) fn twice<F>(work: F) -> (u16, JoinHandle<Vec<u8>>)
+where
+    F: Fn(TcpStream) -> Vec<u8> + Send + 'static,
+{
+    let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+    let port = listener.local_addr().unwrap().port();
+    let server = thread::spawn(move || {
+        let mut seen = Vec::new();
+        for _ in 0..2 {
+            let (stream, _) = listener.accept().unwrap();
+            seen.extend(work(stream));
+        }
+        seen
     });
     (port, server)
 }

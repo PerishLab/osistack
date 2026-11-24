@@ -42,7 +42,7 @@ struct Early {
 }
 
 pub(crate) fn start(clock: &super::Clock, uri: &Uri) -> Result<Session, Error> {
-    let dest = resolve(uri.host(), uri.port())?;
+    let dest = locate(clock, uri)?;
     let sock = Datagram::bind(SocketAddr::from(([0, 0, 0, 0], 0)))?;
     let secret = entropy()?;
     let random = entropy()?;
@@ -53,8 +53,7 @@ pub(crate) fn start(clock: &super::Clock, uri: &Uri) -> Result<Session, Error> {
         group: 0x001d,
         key: public,
     };
-    let protocols = vec![b"h3".to_vec()];
-    let hello = Hello::begin(uri.host().as_bytes(), &protocols, &[share], random)?;
+    let hello = Hello::begin(uri.host().as_bytes(), &[b"h3".to_vec()], &[share], random)?;
     let hello = offered(hello, &scid)?;
     let packet = Opening {
         dcid: original.clone(),
@@ -257,6 +256,15 @@ pub(crate) fn budget(deadline: Instant, phase: Duration) -> Result<Duration, Err
         .filter(|left| *left > Duration::ZERO)
         .map(|left| left.min(phase))
         .ok_or(Error::Timeout)
+}
+
+fn locate(clock: &super::Clock, uri: &Uri) -> Result<SocketAddr, Error> {
+    let pair = clock.client.offered(uri.host(), uri.port());
+    let (host, port) = match (clock.client.http3, pair) {
+        (crate::client::Http3::Only, _) | (_, None) => (uri.host().to_owned(), uri.port()),
+        (_, Some(pair)) => pair,
+    };
+    resolve(&host, port)
 }
 
 fn resolve(host: &str, port: u16) -> Result<SocketAddr, Error> {
