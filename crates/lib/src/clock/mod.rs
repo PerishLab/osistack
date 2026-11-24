@@ -1,4 +1,4 @@
-use crate::client::{Client, Http3, Response, located};
+use crate::client::{Client, Response, located};
 use crate::error::Error;
 use crate::exchange::Exchange;
 use h1::{Field, Framing, Head, Request, Version};
@@ -32,8 +32,10 @@ impl<'a> Clock<'a> {
         if !matches!(uri.scheme(), Scheme::Http | Scheme::Https) {
             return Err(Error::Scheme);
         }
-        if uri.scheme() == Scheme::Https && self.client.http3 == Http3::Only {
-            return http3::ask(self, method, uri, body);
+        if uri.scheme() == Scheme::Https
+            && let Some(response) = http3::first(self, method.clone(), uri, body)?
+        {
+            return Ok(response);
         }
         let bodiless = method.text() == "HEAD" || method.text() == "CONNECT";
         let hop = if uri.scheme() == Scheme::Http {
