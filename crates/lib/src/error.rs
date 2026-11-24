@@ -7,6 +7,8 @@ pub enum Error {
     Http(http::Error),
     Tls(tls::Error),
     Http2(h2::Error),
+    Quic(quic::Error),
+    Http3,
     Scheme,
     Random,
     Limit,
@@ -27,6 +29,8 @@ impl fmt::Display for Error {
             Self::Http(error) => write!(out, "http semantics: {error}"),
             Self::Tls(error) => write!(out, "tls: {error}"),
             Self::Http2(error) => write!(out, "http/2 framing: {error}"),
+            Self::Quic(error) => write!(out, "quic: {error}"),
+            Self::Http3 => write!(out, "http/3 protocol error"),
             Self::Scheme => write!(out, "only the http and https schemes are supported"),
             Self::Random => write!(out, "could not read random bytes"),
             Self::Limit => write!(out, "response exceeds the configured size limit"),
@@ -52,6 +56,7 @@ impl std::error::Error for Error {
             Self::Http(error) => Some(error),
             Self::Tls(error) => Some(error),
             Self::Http2(error) => Some(error),
+            Self::Quic(error) => Some(error),
             _ => None,
         }
     }
@@ -84,6 +89,30 @@ impl From<tls::Error> for Error {
 impl From<h2::Error> for Error {
     fn from(error: h2::Error) -> Self {
         Self::Http2(error)
+    }
+}
+
+impl From<quic::Error> for Error {
+    fn from(error: quic::Error) -> Self {
+        Self::Quic(error)
+    }
+}
+
+impl From<h3::Fault> for Error {
+    fn from(_: h3::Fault) -> Self {
+        Self::Http3
+    }
+}
+
+impl From<h3::Error> for Error {
+    fn from(_: h3::Error) -> Self {
+        Self::Http3
+    }
+}
+
+impl From<h3::Misuse> for Error {
+    fn from(_: h3::Misuse) -> Self {
+        Self::Usage
     }
 }
 
