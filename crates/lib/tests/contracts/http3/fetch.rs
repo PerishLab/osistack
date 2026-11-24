@@ -1,8 +1,9 @@
 #[path = "peer.rs"]
 mod peer;
 
+use crate::common::certs;
 use osistack::http::{Method, Uri};
-use osistack::{Client, Http3};
+use osistack::{Client, Http3, command};
 use peer::serve;
 use std::time::Duration;
 
@@ -57,4 +58,31 @@ fn prefer() {
         .unwrap();
     assert_eq!(response.head.status.get(), 200);
     assert_eq!(response.body, b"hello");
+}
+
+fn stored(der: &[u8], flag: &str) -> std::path::PathBuf {
+    let tag = flag.trim_start_matches('-');
+    let path = std::env::temp_dir().join(format!("osistack-334-{}-{tag}", std::process::id()));
+    std::fs::write(&path, certs(der)).unwrap();
+    path
+}
+
+fn flagged(flag: &str) {
+    let peer = serve();
+    let path = stored(&peer.der, flag);
+    let target = format!("{}/hello", peer.uri);
+    let response = command(&[flag, "--cacert", path.to_str().unwrap(), &target]).unwrap();
+    assert_eq!(response.head.status.get(), 200);
+    assert_eq!(response.body, b"hello");
+    let _ = std::fs::remove_file(&path);
+}
+
+#[test]
+fn http3() {
+    flagged("--http3");
+}
+
+#[test]
+fn sole() {
+    flagged("--http3-only");
 }

@@ -15,6 +15,7 @@ const SERVER: [u8; 8] = [4; 8];
 pub(crate) struct Peer {
     pub uri: String,
     pub roots: tls::x509::trust::Roots,
+    pub der: Vec<u8>,
     done: Option<JoinHandle<()>>,
 }
 
@@ -29,6 +30,7 @@ impl Drop for Peer {
 pub(crate) fn serve() -> Peer {
     let held = mint("localhost");
     let roots = held.roots.clone();
+    let der = held.der.clone();
     let peer = socket();
     let port = peer.local_addr().unwrap().port();
     let uri = format!("https://localhost:{port}");
@@ -36,6 +38,7 @@ pub(crate) fn serve() -> Peer {
     Peer {
         uri,
         roots,
+        der,
         done: Some(done),
     }
 }

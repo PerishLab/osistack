@@ -1,119 +1,31 @@
-use crate::Roots;
-use crate::client::{Client, Response};
+use crate::client::Http3;
 use crate::error::Error;
 use h1::Field;
-use http::{Method, Name, Request, Scheme, Uri, Value};
-use std::fs;
+use http::{Method, Name, Scheme, Uri, Value};
 use std::time::Duration;
 
-pub struct Applied {
-    pub response: Response,
-    pub written: Option<String>,
-}
-
-pub fn fetch(request: &Request, body: &[u8]) -> Result<Response, Error> {
-    if request.scheme() != Scheme::Http {
-        return Err(Error::Scheme);
-    }
-    let path = if request.path().is_empty() {
-        "/"
-    } else {
-        request.path()
-    };
-    let text = format!(
-        "{}://{}{}",
-        request.scheme().text(),
-        request.authority(),
-        path
-    );
-    let uri = Uri::parse(&text)?;
-    Client::default().fetch(request.method().clone(), &uri, body)
-}
-
-pub fn command(args: &[&str]) -> Result<Response, Error> {
-    Ok(applied(args)?.response)
-}
-
-pub fn applied(args: &[&str]) -> Result<Applied, Error> {
-    driven(Client::default(), args)
-}
-
-pub fn driven(mut client: Client, args: &[&str]) -> Result<Applied, Error> {
-    let taken = Parsed::read(args)?;
-    let uri = Uri::parse(&taken.target)?;
-    if uri.scheme() != Scheme::Http && uri.scheme() != Scheme::Https {
-        return Err(Error::Scheme);
-    }
-    client.total = taken.total.unwrap_or(client.total);
-    client.connect = taken.connect.unwrap_or(client.connect);
-    client.extra = taken.extra;
-    client.follow = taken.follow;
-    if let Some(via) = taken.proxy {
-        client.via = Some(via);
-    }
-    if let Some(list) = taken.noproxy.as_deref()
-        && bypass(uri.host(), list)
-    {
-        client.via = None;
-    }
-    if let Some(path) = taken.cacert {
-        let text = fs::read_to_string(path).map_err(|_| Error::Trust)?;
-        client.roots = Roots::pem(&text).map_err(|_| Error::Trust)?;
-    }
-    if uri.scheme() == Scheme::Https && client.roots.count() == 0 {
-        return Err(Error::Trust);
-    }
-    let mut result = client.fetch(taken.method.clone(), &uri, &taken.body);
-    for _ in 0..taken.retry {
-        if result.is_ok() {
-            break;
-        }
-        result = client.fetch(taken.method.clone(), &uri, &taken.body);
-    }
-    let response = result?;
-    if taken.fail && response.head.status.get() >= 400 {
-        return Err(Error::Status);
-    }
-    if let Some(path) = taken.output {
-        fs::write(path, &response.body)?;
-    }
-    if let Some(path) = taken.dump {
-        fs::write(path, response.listed())?;
-    }
-    let written = taken
-        .written
-        .as_deref()
-        .map(|format| expand(&response, format));
-    Ok(Applied { response, written })
-}
-
-fn expand(response: &Response, format: &str) -> String {
-    format
-        .replace("%{http_code}", &response.head.status.get().to_string())
-        .replace("%{size_download}", &response.body.len().to_string())
-}
-
-struct Parsed {
-    method: Method,
-    target: String,
-    body: Vec<u8>,
-    output: Option<String>,
-    fail: bool,
-    total: Option<Duration>,
-    written: Option<String>,
-    extra: Vec<Field>,
-    retry: u32,
-    noproxy: Option<String>,
-    proxy: Option<Uri>,
-    follow: bool,
-    head: bool,
-    cacert: Option<String>,
-    dump: Option<String>,
-    connect: Option<Duration>,
+pub(crate) struct Parsed {
+    pub(crate) method: Method,
+    pub(crate) target: String,
+    pub(crate) body: Vec<u8>,
+    pub(crate) output: Option<String>,
+    pub(crate) fail: bool,
+    pub(crate) total: Option<Duration>,
+    pub(crate) written: Option<String>,
+    pub(crate) extra: Vec<Field>,
+    pub(crate) retry: u32,
+    pub(crate) noproxy: Option<String>,
+    pub(crate) proxy: Option<Uri>,
+    pub(crate) follow: bool,
+    pub(crate) head: bool,
+    pub(crate) cacert: Option<String>,
+    pub(crate) dump: Option<String>,
+    pub(crate) connect: Option<Duration>,
+    pub(crate) http3: Option<Http3>,
 }
 
 impl Parsed {
-    fn read(args: &[&str]) -> Result<Self, Error> {
+    pub(crate) fn read(args: &[&str]) -> Result<Self, Error> {
         let args = if args.first() == Some(&"fetch") {
             &args[1..]
         } else {
@@ -136,6 +48,7 @@ impl Parsed {
             cacert: None,
             dump: None,
             connect: None,
+            http3: None,
         };
         let mut at = 0;
         while at < args.len() {
@@ -224,6 +137,14 @@ impl Parsed {
                 self.follow = true;
                 Ok(at + 1)
             }
+            "--http3" => {
+                self.triple(Http3::Prefer)?;
+                Ok(at + 1)
+            }
+            "--http3-only" => {
+                self.triple(Http3::Only)?;
+                Ok(at + 1)
+            }
             flag if flag.starts_with('-') && !flag.starts_with("--") => {
                 self.shorts(flag)?;
                 Ok(at + 1)
@@ -247,6 +168,14 @@ impl Parsed {
         self.method = Method::new("HEAD")?;
         Ok(())
     }
+    fn triple(&mut self, http3: Http3) -> Result<(), Error> {
+        if self.http3.is_some() {
+            return Err(Error::Usage);
+        }
+        self.http3 = Some(http3);
+        Ok(())
+    }
+
     fn shorts(&mut self, flag: &str) -> Result<(), Error> {
         if flag.len() < 2 {
             return Err(Error::Usage);
@@ -264,7 +193,7 @@ impl Parsed {
     }
 }
 
-fn header(text: &str) -> Result<Field, Error> {
+pub(crate) fn header(text: &str) -> Result<Field, Error> {
     let (name, value) = text.split_once(':').ok_or(Error::Usage)?;
     if name.is_empty() {
         return Err(Error::Usage);
@@ -275,13 +204,13 @@ fn header(text: &str) -> Result<Field, Error> {
     Ok(Field { name, value })
 }
 
-fn bypass(host: &str, list: &str) -> bool {
+pub(crate) fn bypass(host: &str, list: &str) -> bool {
     list.split(',')
         .map(str::trim)
         .any(|item| item == "*" || item == host)
 }
 
-fn count(text: &str) -> Result<u32, Error> {
+pub(crate) fn count(text: &str) -> Result<u32, Error> {
     text.parse().map_err(|_| Error::Usage)
 }
 
@@ -289,7 +218,7 @@ fn needed<'a>(args: &[&'a str], at: usize) -> Result<&'a str, Error> {
     args.get(at + 1).copied().ok_or(Error::Usage)
 }
 
-fn limit(text: &str) -> Result<Duration, Error> {
+pub(crate) fn limit(text: &str) -> Result<Duration, Error> {
     let secs: f64 = text.parse().map_err(|_| Error::Usage)?;
     if !secs.is_finite() || secs < 0.0 {
         return Err(Error::Usage);
