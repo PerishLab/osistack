@@ -25,6 +25,7 @@ pub fn table() -> Vec<(&'static str, Check)> {
     let mut rows = vec![
         ("client", piped::client as Check),
         ("explicit-pem-roots", roots as Check),
+        ("system-trust-store", extend::system as Check),
         ("hostname-validation", hostname as Check),
     ];
     rows.extend(agree::table());

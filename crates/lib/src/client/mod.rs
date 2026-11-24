@@ -1,3 +1,7 @@
+mod store;
+
+pub use store::{load, stored};
+
 use crate::clock::Clock;
 use crate::error::Error;
 use h1::{Field, Head, Version};
@@ -45,7 +49,7 @@ impl Default for Client {
             total: Duration::from_secs(60),
             head: 64 * 1024,
             body: 16 * 1024 * 1024,
-            roots: Roots::default(),
+            roots: store::stored(),
             extra: Vec::new(),
             via: None,
             follow: true,
@@ -75,7 +79,16 @@ impl Response {
 
 impl Client {
     pub fn fetch(&self, method: Method, uri: &Uri, body: &[u8]) -> Result<Response, Error> {
+        self.trusted(uri)?;
         Clock::new(self).chase(method, uri, body)
+    }
+
+    pub(crate) fn trusted(&self, uri: &Uri) -> Result<(), Error> {
+        if uri.scheme() == Scheme::Https && self.roots.count() == 0 {
+            Err(Error::Trust)
+        } else {
+            Ok(())
+        }
     }
 
     pub fn forward(&self, method: Method, uri: &Uri, body: &[u8]) -> Result<Response, Error> {

@@ -50,6 +50,7 @@ been copied or adapted into this repository.
 | h3 (hyperium) | https://github.com/hyperium/h3 | MIT | tag h3-v0.0.8 (h3 0.0.8) | Idea or architecture | Contract for the `h3` transport seam; none yet | none |
 | ureq | https://github.com/algesten/ureq | MIT OR Apache-2.0 | tag 3.5.2 (ureq 3.5.2) | Idea or architecture | Contract for the synchronous client shape and behavior baseline in `osistack`; none yet | none |
 | curl | https://github.com/curl/curl | curl (SPDX `curl`, file COPYING) | tag curl-8_23_0 | Idea or architecture | Behavior baseline for the M5 command line; none yet | none |
+| openssl-probe | https://github.com/alexcrichton/openssl-probe | MIT OR Apache-2.0 | 2026-11-24, well-known Linux CA file paths as commonly documented | Idea or architecture | Default Linux system-store probe in `osistack::store`; no code copied | none |
 
 
 ## Runtime corpora

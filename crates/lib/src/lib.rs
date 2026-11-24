@@ -8,7 +8,7 @@ mod pool;
 mod profile;
 mod secure;
 
-pub use client::{Client, Http3, Response};
+pub use client::{Client, Http3, Response, load, stored};
 pub use error::Error;
 pub use fetch::{Applied, applied, command, driven, fetch};
 pub use h1;

@@ -67,9 +67,6 @@ pub fn driven(mut client: Client, args: &[&str]) -> Result<Applied, Error> {
         }
         client.http3 = http3;
     }
-    if uri.scheme() == Scheme::Https && client.roots.count() == 0 {
-        return Err(Error::Trust);
-    }
     let mut result = client.fetch(taken.method.clone(), &uri, &taken.body);
     for _ in 0..taken.retry {
         if result.is_ok() {
