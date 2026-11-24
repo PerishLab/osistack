@@ -17,6 +17,14 @@ pub struct Client {
     pub extra: Vec<Field>,
     pub via: Option<Uri>,
     pub follow: bool,
+    pub http3: Http3,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Http3 {
+    Off,
+    Prefer,
+    Only,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -38,6 +46,7 @@ impl Default for Client {
             extra: Vec::new(),
             via: None,
             follow: true,
+            http3: Http3::Off,
         }
     }
 }
@@ -130,4 +139,25 @@ fn hostport(uri: &Uri) -> String {
         host.to_owned()
     };
     format!("{host}:{}", uri.port())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{Client, Http3};
+
+    #[test]
+    fn preference() {
+        assert_eq!(Client::default().http3, Http3::Off);
+        let prefer = Client {
+            http3: Http3::Prefer,
+            ..Client::default()
+        };
+        assert_eq!(prefer.http3, Http3::Prefer);
+        let only = Client {
+            http3: Http3::Only,
+            ..Client::default()
+        };
+        assert_eq!(only.http3, Http3::Only);
+        assert_ne!(Http3::Off, Http3::Only);
+    }
 }
