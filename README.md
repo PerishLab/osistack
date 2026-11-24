@@ -33,7 +33,7 @@ let response = command(&[
     "http://127.0.0.1:8080/path",
 ])?;
 
-// HTTPS needs an explicit PEM trust root. The default store is empty.
+// HTTPS uses the system CA store by default. --cacert replaces it.
 let outcome = applied(&[
     "--cacert", "ca.pem",
     "-I",
@@ -48,7 +48,8 @@ let _ = command(&[
 ])?;
 ```
 
-An `https://` URL with no trust roots returns an error that tells you to pass
-`--cacert FILE`. `--http3` tries HTTP/3 and falls back to TCP HTTPS;
-`--http3-only` uses HTTP/3 with no fallback. Both require `https://`. There is
-no `-k`.
+An `https://` URL uses the system CA store by default. `--cacert FILE` or a
+caller-set `Client.roots` replaces that store entirely. An empty root set, or a
+host with no system store, returns an error that tells you to pass `--cacert
+FILE`. `--http3` tries HTTP/3 and falls back to TCP HTTPS; `--http3-only` uses
+HTTP/3 with no fallback. Both require `https://`. There is no `-k`.

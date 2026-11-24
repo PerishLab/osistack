@@ -10,6 +10,7 @@ mod tls {
 mod h3peer;
 
 mod altsvc;
+mod store;
 
 use osistack::http::{Method, Uri};
 use osistack::{Client, Http3, Pool};
@@ -54,15 +55,13 @@ fn posting() {
 
 #[test]
 fn roots() {
-    let (port, server) = spawn(serve);
     let client = local(osistack::Roots::default());
-    let uri = Uri::parse(&format!("https://localhost:{port}/")).unwrap();
+    let uri = Uri::parse("https://localhost:1/").unwrap();
     let outcome = client.fetch(get(), &uri, b"");
     assert!(
-        matches!(outcome, Err(osistack::Error::Tls(_))),
+        matches!(outcome, Err(osistack::Error::Trust)),
         "{outcome:?}"
     );
-    let _ = server.join();
 }
 
 #[test]

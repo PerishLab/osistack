@@ -43,6 +43,7 @@ pub fn table() -> Vec<Capability> {
         Capability::new(Area::Tls, "chain-validation", State::Supported),
         Capability::new(Area::Tls, "hostname-validation", State::Supported),
         Capability::new(Area::Tls, "explicit-pem-roots", State::Supported),
+        Capability::new(Area::Tls, "system-trust-store", State::Supported),
         Capability::new(Area::Tls, "key-schedule", State::Supported),
         Capability::new(Area::Tls, "record-protection", State::Supported),
         Capability::new(Area::Tls, "tls12", State::Excluded),

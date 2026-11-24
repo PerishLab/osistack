@@ -16,9 +16,6 @@ fn scheme() {
     let uri = Uri::parse("https://example.test/").unwrap();
     let request = Request::new(Method::new("GET").unwrap(), &uri, Vec::new()).unwrap();
     assert!(matches!(fetch(&request, b""), Err(Error::Scheme)));
-    let err = command(&["https://127.0.0.1:1/"]).unwrap_err();
-    assert!(matches!(err, Error::Trust), "{err:?}");
-    assert!(err.to_string().contains("--cacert"), "{err}");
 }
 
 #[test]

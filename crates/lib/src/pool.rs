@@ -33,6 +33,7 @@ impl Pool {
         if !matches!(uri.scheme(), Scheme::Http | Scheme::Https) {
             return Err(Error::Scheme);
         }
+        self.client.trusted(uri)?;
         if uri.scheme() == Scheme::Https
             && let Some(response) = Clock::new(&self.client).first(method.clone(), uri, body)?
         {
