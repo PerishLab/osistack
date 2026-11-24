@@ -1,4 +1,4 @@
-use crate::client::{Client, Response, located};
+use crate::client::{Client, Http3, Response, located};
 use crate::error::Error;
 use crate::exchange::Exchange;
 use h1::{Field, Framing, Head, Request, Version};
@@ -6,9 +6,12 @@ use h2::{Connection, Frame, Header, Settings};
 use http::{Method, Name, Scheme, Status, Uri, Value};
 use std::time::Instant;
 
+mod handshake;
+mod http3;
+
 pub struct Clock<'a> {
-    client: &'a Client,
-    deadline: Instant,
+    pub(crate) client: &'a Client,
+    pub(crate) deadline: Instant,
 }
 
 impl<'a> Clock<'a> {
@@ -28,6 +31,9 @@ impl<'a> Clock<'a> {
     ) -> Result<Response, Error> {
         if !matches!(uri.scheme(), Scheme::Http | Scheme::Https) {
             return Err(Error::Scheme);
+        }
+        if uri.scheme() == Scheme::Https && self.client.http3 == Http3::Only {
+            return http3::ask(self, method, uri, body);
         }
         let bodiless = method.text() == "HEAD" || method.text() == "CONNECT";
         let hop = if uri.scheme() == Scheme::Http {

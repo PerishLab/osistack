@@ -1,4 +1,5 @@
 mod alt;
+mod fetch;
 mod many;
 mod over;
 
