@@ -39,7 +39,16 @@ let outcome = applied(&[
     "-I",
     "https://127.0.0.1:8443/",
 ])?;
+
+// Prefer HTTP/3, falling back to TCP HTTPS if it fails.
+let _ = command(&[
+    "--http3",
+    "--cacert", "ca.pem",
+    "https://127.0.0.1:8443/",
+])?;
 ```
 
 An `https://` URL with no trust roots returns an error that tells you to pass
-`--cacert FILE`.
+`--cacert FILE`. `--http3` tries HTTP/3 and falls back to TCP HTTPS;
+`--http3-only` uses HTTP/3 with no fallback. Both require `https://`. There is
+no `-k`.

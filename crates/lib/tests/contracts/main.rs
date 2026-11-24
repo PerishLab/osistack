@@ -99,6 +99,7 @@ fn supported() {
             (Area::Crypto, "seam"),
             (Area::Crypto, "primitives"),
             (Area::Cli, "curl-subset"),
+            (Area::Scope, "http3-for-existing-consumers"),
         ]
     );
 }
@@ -167,8 +168,8 @@ fn unique() {
             + profile.count(State::Unverified),
         profile.capabilities.len()
     );
-    assert_eq!(profile.count(State::Supported), 71);
-    assert_eq!(profile.count(State::Excluded), 32);
+    assert_eq!(profile.count(State::Supported), 72);
+    assert_eq!(profile.count(State::Excluded), 31);
     assert_eq!(profile.count(State::Unverified), 0);
 }
 

@@ -102,7 +102,11 @@ pub fn table() -> Vec<Capability> {
         Capability::new(Area::Scope, "userspace-tcpip", State::Excluded),
         Capability::new(Area::Scope, "server-replacement", State::Excluded),
         Capability::new(Area::Scope, "bootstrap-curl-replacement", State::Excluded),
-        Capability::new(Area::Scope, "http3-for-existing-consumers", State::Excluded),
+        Capability::new(
+            Area::Scope,
+            "http3-for-existing-consumers",
+            State::Supported,
+        ),
         Capability::new(Area::Scope, "day-one-hardware-crypto", State::Excluded),
         Capability::new(Area::Scope, "full-curl-parity", State::Excluded),
     ]
