@@ -1,7 +1,9 @@
 use crate::clock::Clock;
 use crate::error::Error;
 use h1::{Field, Head, Version};
+use h3::{Cache, Origin};
 use http::{Method, Name, Scheme, Uri, Value};
+use std::sync::{Arc, Mutex};
 use std::time::Duration;
 use tls::x509::trust::Roots;
 
@@ -18,6 +20,7 @@ pub struct Client {
     pub via: Option<Uri>,
     pub follow: bool,
     pub http3: Http3,
+    pub alts: Arc<Mutex<Cache>>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -47,6 +50,7 @@ impl Default for Client {
             via: None,
             follow: true,
             http3: Http3::Off,
+            alts: Arc::new(Mutex::new(Cache::new(8))),
         }
     }
 }
@@ -120,6 +124,42 @@ impl Client {
             value: Value::new(value)?,
         })
     }
+
+    pub fn clear(&self) {
+        if let Ok(mut cache) = self.alts.lock() {
+            *cache = Cache::new(8);
+        }
+    }
+
+    pub(crate) fn offered(&self, host: &str, port: u16) -> Option<(String, u16)> {
+        let cache = self.alts.lock().ok()?;
+        let found = cache.best(&Origin::new(host, port), micros())?;
+        Some((found.host.clone(), found.port))
+    }
+
+    pub(crate) fn remember(&self, host: &str, port: u16, head: &Head) {
+        let values = head.values("alt-svc");
+        if values.is_empty() {
+            return;
+        }
+        let Ok(mut cache) = self.alts.lock() else {
+            return;
+        };
+        let origin = Origin::new(host, port);
+        let now = micros();
+        for value in values {
+            if let Ok(text) = std::str::from_utf8(value) {
+                let _ = cache.receive(&origin, text, now);
+            }
+        }
+    }
+}
+
+fn micros() -> u64 {
+    std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|spent| spent.as_micros() as u64)
+        .unwrap_or(0)
 }
 
 pub(crate) fn located(uri: &Uri) -> String {

@@ -1,5 +1,5 @@
 use crate::client::{Client, Response};
-use crate::clock::Mux;
+use crate::clock::{Clock, Mux};
 use crate::error::Error;
 use crate::exchange::{Exchange, Slot};
 use h1::{Framing, Head, Request, Version};
@@ -33,6 +33,11 @@ impl Pool {
         if !matches!(uri.scheme(), Scheme::Http | Scheme::Https) {
             return Err(Error::Scheme);
         }
+        if uri.scheme() == Scheme::Https
+            && let Some(response) = Clock::new(&self.client).first(method.clone(), uri, body)?
+        {
+            return Ok(response);
+        }
         let taken = self
             .held
             .take()
@@ -55,6 +60,7 @@ impl Pool {
         };
         if opened.h2() {
             let (response, slot, mux) = opened.http2(&self.client, method, uri, body)?;
+            self.client.remember(uri.host(), uri.port(), &response.head);
             self.held = Some(Held {
                 slot,
                 host: uri.host().to_owned(),
@@ -64,6 +70,7 @@ impl Pool {
             Ok(response)
         } else {
             let (response, held) = opened.plain(&self.client, method, uri, body)?;
+            self.client.remember(uri.host(), uri.port(), &response.head);
             self.held = held;
             Ok(response)
         }
