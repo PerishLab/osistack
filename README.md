@@ -53,3 +53,13 @@ caller-set `Client.roots` replaces that store entirely. An empty root set, or a
 host with no system store, returns an error that tells you to pass `--cacert
 FILE`. `--http3` tries HTTP/3 and falls back to TCP HTTPS; `--http3-only` uses
 HTTP/3 with no fallback. Both require `https://`. There is no `-k`.
+
+## Platforms
+
+The tests run on Linux only, and the capability profile describes Linux. The
+workspace is meant to compile for macOS and Windows targets as well, with the
+Linux-specific parts compiled out: there, `ecn`, `gso` and `system-trust-store`
+are Unverified, the default trust roots are empty (pass `--cacert FILE`), and
+a build without `/dev/urandom` (Windows) returns an explicit error for anything
+that needs random bytes. This is a compile target, not support for those
+platforms.

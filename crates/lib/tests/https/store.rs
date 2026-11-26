@@ -70,6 +70,13 @@ fn vacant() {
 }
 
 #[test]
+#[cfg(not(target_os = "linux"))]
+fn bare() {
+    assert_eq!(stored().count(), 0);
+}
+
+#[test]
+#[cfg(target_os = "linux")]
 fn platform() {
     let path = std::path::Path::new("/etc/ssl/certs/ca-certificates.crt");
     if path.is_file() {

@@ -22,87 +22,115 @@ fn names(profile: &Profile, state: State) -> Vec<(Area, &'static str)> {
         .collect()
 }
 
+const BOUND: [(Area, &str); 3] = [
+    (Area::Tls, "system-trust-store"),
+    (Area::Quic, "ecn"),
+    (Area::Quic, "gso"),
+];
+
+fn held() -> usize {
+    if cfg!(target_os = "linux") {
+        0
+    } else {
+        BOUND.len()
+    }
+}
+
 #[test]
 fn supported() {
     let profile = dispatch(Operation::Capabilities).unwrap();
-    assert_eq!(
-        names(&profile, State::Supported),
-        vec![
-            (Area::Wire, "byte-cursor"),
-            (Area::Wire, "quic-varint"),
-            (Area::Wire, "prefix-integer"),
-            (Area::Wire, "huffman"),
-            (Area::Semantics, "method"),
-            (Area::Semantics, "status"),
-            (Area::Semantics, "field-name"),
-            (Area::Semantics, "field-value"),
-            (Area::Http1, "framing"),
-            (Area::Http1, "content-length"),
-            (Area::Http1, "chunked"),
-            (Area::Http1, "keep-alive-pool"),
-            (Area::Http1, "connection-close"),
-            (Area::Http1, "http10-response"),
-            (Area::Http1, "smuggling-defense"),
-            (Area::Http1, "redirect-policy"),
-            (Area::Http1, "total-timeout"),
-            (Area::Http1, "phase-timeout"),
-            (Area::Http1, "status-not-error"),
-            (Area::Http1, "loopback-test-server"),
-            (Area::Http1, "proxy"),
-            (Area::Tls, "client"),
-            (Area::Tls, "x25519"),
-            (Area::Tls, "p256"),
-            (Area::Tls, "aes-gcm"),
-            (Area::Tls, "chacha20-poly1305"),
-            (Area::Tls, "ecdsa-verify"),
-            (Area::Tls, "rsa-verify"),
-            (Area::Tls, "sni"),
-            (Area::Tls, "alpn"),
-            (Area::Tls, "chain-validation"),
-            (Area::Tls, "hostname-validation"),
-            (Area::Tls, "explicit-pem-roots"),
-            (Area::Tls, "system-trust-store"),
-            (Area::Tls, "key-schedule"),
-            (Area::Tls, "record-protection"),
-            (Area::Http2, "settings"),
-            (Area::Http2, "headers"),
-            (Area::Http2, "continuation"),
-            (Area::Http2, "data"),
-            (Area::Http2, "flow-control"),
-            (Area::Http2, "reset-stream"),
-            (Area::Http2, "goaway"),
-            (Area::Http2, "ping"),
-            (Area::Http2, "hpack"),
-            (Area::Http2, "concurrent-streams"),
-            (Area::Http2, "connection-reuse"),
-            (Area::Http2, "push-disabled"),
-            (Area::Quic, "v1"),
-            (Area::Quic, "retry-handshake"),
-            (Area::Quic, "retry-integrity"),
-            (Area::Quic, "version-negotiation"),
-            (Area::Quic, "stream-flow-control"),
-            (Area::Quic, "connection-flow-control"),
-            (Area::Quic, "connection-id"),
-            (Area::Quic, "packet-protection"),
-            (Area::Quic, "path-validation"),
-            (Area::Quic, "key-update"),
-            (Area::Quic, "newreno"),
-            (Area::Quic, "ecn"),
-            (Area::Quic, "gso"),
-            (Area::Http3, "control-stream"),
-            (Area::Http3, "settings"),
-            (Area::Http3, "headers"),
-            (Area::Http3, "data"),
-            (Area::Http3, "qpack"),
-            (Area::Http3, "blocked-streams"),
-            (Area::Http3, "goaway"),
-            (Area::Http3, "alt-svc-discovery"),
-            (Area::Crypto, "seam"),
-            (Area::Crypto, "primitives"),
-            (Area::Cli, "curl-subset"),
-            (Area::Scope, "http3-for-existing-consumers"),
-        ]
-    );
+    let mut expected = vec![
+        (Area::Wire, "byte-cursor"),
+        (Area::Wire, "quic-varint"),
+        (Area::Wire, "prefix-integer"),
+        (Area::Wire, "huffman"),
+        (Area::Semantics, "method"),
+        (Area::Semantics, "status"),
+        (Area::Semantics, "field-name"),
+        (Area::Semantics, "field-value"),
+        (Area::Http1, "framing"),
+        (Area::Http1, "content-length"),
+        (Area::Http1, "chunked"),
+        (Area::Http1, "keep-alive-pool"),
+        (Area::Http1, "connection-close"),
+        (Area::Http1, "http10-response"),
+        (Area::Http1, "smuggling-defense"),
+        (Area::Http1, "redirect-policy"),
+        (Area::Http1, "total-timeout"),
+        (Area::Http1, "phase-timeout"),
+        (Area::Http1, "status-not-error"),
+        (Area::Http1, "loopback-test-server"),
+        (Area::Http1, "proxy"),
+        (Area::Tls, "client"),
+        (Area::Tls, "x25519"),
+        (Area::Tls, "p256"),
+        (Area::Tls, "aes-gcm"),
+        (Area::Tls, "chacha20-poly1305"),
+        (Area::Tls, "ecdsa-verify"),
+        (Area::Tls, "rsa-verify"),
+        (Area::Tls, "sni"),
+        (Area::Tls, "alpn"),
+        (Area::Tls, "chain-validation"),
+        (Area::Tls, "hostname-validation"),
+        (Area::Tls, "explicit-pem-roots"),
+        (Area::Tls, "system-trust-store"),
+        (Area::Tls, "key-schedule"),
+        (Area::Tls, "record-protection"),
+        (Area::Http2, "settings"),
+        (Area::Http2, "headers"),
+        (Area::Http2, "continuation"),
+        (Area::Http2, "data"),
+        (Area::Http2, "flow-control"),
+        (Area::Http2, "reset-stream"),
+        (Area::Http2, "goaway"),
+        (Area::Http2, "ping"),
+        (Area::Http2, "hpack"),
+        (Area::Http2, "concurrent-streams"),
+        (Area::Http2, "connection-reuse"),
+        (Area::Http2, "push-disabled"),
+        (Area::Quic, "v1"),
+        (Area::Quic, "retry-handshake"),
+        (Area::Quic, "retry-integrity"),
+        (Area::Quic, "version-negotiation"),
+        (Area::Quic, "stream-flow-control"),
+        (Area::Quic, "connection-flow-control"),
+        (Area::Quic, "connection-id"),
+        (Area::Quic, "packet-protection"),
+        (Area::Quic, "path-validation"),
+        (Area::Quic, "key-update"),
+        (Area::Quic, "newreno"),
+        (Area::Quic, "ecn"),
+        (Area::Quic, "gso"),
+        (Area::Http3, "control-stream"),
+        (Area::Http3, "settings"),
+        (Area::Http3, "headers"),
+        (Area::Http3, "data"),
+        (Area::Http3, "qpack"),
+        (Area::Http3, "blocked-streams"),
+        (Area::Http3, "goaway"),
+        (Area::Http3, "alt-svc-discovery"),
+        (Area::Crypto, "seam"),
+        (Area::Crypto, "primitives"),
+        (Area::Cli, "curl-subset"),
+        (Area::Scope, "http3-for-existing-consumers"),
+    ];
+    if !cfg!(target_os = "linux") {
+        expected.retain(|row| !BOUND.contains(row));
+    }
+    assert_eq!(names(&profile, State::Supported), expected);
+}
+
+#[test]
+fn bound() {
+    let profile = Profile::current();
+    let state = if cfg!(target_os = "linux") {
+        State::Supported
+    } else {
+        State::Unverified
+    };
+    for (area, name) in BOUND {
+        assert_eq!(profile.state(area, name), Some(state), "{name}");
+    }
 }
 
 #[test]
@@ -169,9 +197,9 @@ fn unique() {
             + profile.count(State::Unverified),
         profile.capabilities.len()
     );
-    assert_eq!(profile.count(State::Supported), 73);
+    assert_eq!(profile.count(State::Supported), 73 - held());
     assert_eq!(profile.count(State::Excluded), 31);
-    assert_eq!(profile.count(State::Unverified), 0);
+    assert_eq!(profile.count(State::Unverified), held());
 }
 
 #[test]

@@ -1,5 +1,7 @@
+mod random;
 mod store;
 
+pub(crate) use random::entropy;
 pub use store::{load, stored};
 
 use crate::clock::Clock;
