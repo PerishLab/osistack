@@ -1,11 +1,10 @@
 mod close;
-mod ecn;
 pub(crate) mod finish;
-mod gso;
 mod hearing;
 mod integrity;
 mod opening;
 mod protect;
+mod socket;
 mod update;
 
 use crate::behaviour::Check;
@@ -21,8 +20,7 @@ pub fn table() -> Vec<(&'static str, Check)> {
         ("version-negotiation", version as Check),
         ("connection-id", ident as Check),
     ];
-    rows.extend(ecn::table());
-    rows.extend(gso::table());
+    rows.extend(socket::table());
     rows.extend(protect::table());
     rows.extend(update::table());
     rows.extend(integrity::table());

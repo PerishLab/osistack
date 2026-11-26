@@ -71,12 +71,12 @@ version = "0.0.0"
 
 [[package]]
 name = "radicula-crypto"
-version = "0.20.0"
+version = "0.21.0"
 source = "sparse+https://cargo.perish.uk/"
-checksum = "2e6fd36fdddaa03f520509eaa43ccefd056dc43811409e0fb5653e9b99f132ff"
+checksum = "d6bedc55c22c4ca05374992bde0c8b0033ad6c2c9bf0dd3bc3765906d717a840"
 
 [[package]]
 name = "radicula-socket"
-version = "0.20.0"
+version = "0.21.0"
 source = "sparse+https://cargo.perish.uk/"
-checksum = "9d33f198f332e522d46916412e3e43f724daed3868a809a21f87d2f89a9d7b83"
+checksum = "c20f23111ce7ae6734832fd472ceb6a6237d1ebda909928858783c7efe9c149b"

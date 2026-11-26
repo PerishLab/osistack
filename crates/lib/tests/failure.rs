@@ -40,7 +40,10 @@ fn silent() {
 fn scheme() {
     let uri = Uri::parse("https://127.0.0.1:1/").unwrap();
     let outcome = client().fetch(get(), &uri, b"");
+    #[cfg(target_os = "linux")]
     assert!(matches!(outcome, Err(Error::Socket(Socket::Connect(_)))));
+    #[cfg(not(target_os = "linux"))]
+    assert!(matches!(outcome, Err(Error::Trust)));
 }
 
 #[test]

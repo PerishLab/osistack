@@ -25,9 +25,10 @@ pub fn table() -> Vec<(&'static str, Check)> {
     let mut rows = vec![
         ("client", piped::client as Check),
         ("explicit-pem-roots", roots as Check),
-        ("system-trust-store", extend::system as Check),
         ("hostname-validation", hostname as Check),
     ];
+    #[cfg(target_os = "linux")]
+    rows.push(("system-trust-store", extend::store::system as Check));
     rows.extend(agree::table());
     rows.extend(extend::table());
     rows.extend(schedule::table());

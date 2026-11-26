@@ -43,7 +43,7 @@ pub fn table() -> Vec<Capability> {
         Capability::new(Area::Tls, "chain-validation", State::Supported),
         Capability::new(Area::Tls, "hostname-validation", State::Supported),
         Capability::new(Area::Tls, "explicit-pem-roots", State::Supported),
-        Capability::new(Area::Tls, "system-trust-store", State::Supported),
+        Capability::new(Area::Tls, "system-trust-store", proven()),
         Capability::new(Area::Tls, "key-schedule", State::Supported),
         Capability::new(Area::Tls, "record-protection", State::Supported),
         Capability::new(Area::Tls, "tls12", State::Excluded),
@@ -79,8 +79,8 @@ pub fn table() -> Vec<Capability> {
         Capability::new(Area::Quic, "path-validation", State::Supported),
         Capability::new(Area::Quic, "key-update", State::Supported),
         Capability::new(Area::Quic, "newreno", State::Supported),
-        Capability::new(Area::Quic, "ecn", State::Supported),
-        Capability::new(Area::Quic, "gso", State::Supported),
+        Capability::new(Area::Quic, "ecn", proven()),
+        Capability::new(Area::Quic, "gso", proven()),
         Capability::new(Area::Quic, "cubic", State::Excluded),
         Capability::new(Area::Quic, "bbr", State::Excluded),
         Capability::new(Area::Quic, "connection-migration", State::Excluded),
@@ -111,4 +111,12 @@ pub fn table() -> Vec<Capability> {
         Capability::new(Area::Scope, "day-one-hardware-crypto", State::Excluded),
         Capability::new(Area::Scope, "full-curl-parity", State::Excluded),
     ]
+}
+
+fn proven() -> State {
+    if cfg!(target_os = "linux") {
+        State::Supported
+    } else {
+        State::Unverified
+    }
 }

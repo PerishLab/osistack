@@ -1,3 +1,4 @@
+use crate::client::entropy;
 use crate::error::Error;
 use crypto::{Aead, Group, Hash};
 use http::Uri;
@@ -5,7 +6,6 @@ use quic::{
     Applied, Direction, Flight, Handshake, Header, Hearing, Kind, Opening, Param, Params, Side,
 };
 use socket::Datagram;
-use std::io::Read;
 use std::net::{SocketAddr, ToSocketAddrs};
 use std::time::{Duration, Instant};
 use tls::x509::Time;
@@ -239,14 +239,6 @@ fn peel(buffer: &[u8], local: usize) -> Result<Vec<Vec<u8>>, Error> {
             }
         }
     }
-    Ok(out)
-}
-
-fn entropy() -> Result<[u8; 32], Error> {
-    let mut out = [0u8; 32];
-    std::fs::File::open("/dev/urandom")
-        .and_then(|mut file| file.read_exact(&mut out))
-        .map_err(|_| Error::Random)?;
     Ok(out)
 }
 

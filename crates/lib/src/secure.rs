@@ -1,8 +1,7 @@
-use crate::client::Client;
+use crate::client::{Client, entropy};
 use crate::error::Error;
 use crypto::{Aead, Group};
 use socket::Stream;
-use std::io::Read;
 use std::time::{Duration, Instant};
 use tls::x509::Time;
 use tls::x509::trust::Roots;
@@ -281,14 +280,6 @@ fn take(stream: &mut Stream, inbox: &mut Vec<u8>, timeout: Duration) -> Result<R
         }
         inbox.extend_from_slice(&chunk[..count]);
     }
-}
-
-fn entropy() -> Result<[u8; 32], Error> {
-    let mut out = [0u8; 32];
-    std::fs::File::open("/dev/urandom")
-        .and_then(|mut file| file.read_exact(&mut out))
-        .map_err(|_| Error::Random)?;
-    Ok(out)
 }
 
 fn budget(deadline: Instant, phase: Duration) -> Result<Duration, Error> {
